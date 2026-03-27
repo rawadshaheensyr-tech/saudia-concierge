@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Saudia Concierge — Smart Tourism Assistant</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --green: #006C35;
+  --green-dark: #004D26;
+  --green-light: #E8F5E9;
+  --gold: #C8A951;
+  --gold-light: #F5ECD7;
+  --sand: #F5F0E8;
+  --navy: #1A2A44;
+  --wa-bg: #ECE5DD;
+  --wa-green: #DCF8C6;
+  --wa-dark: #075E54;
+  --wa-teal: #128C7E;
+  --wa-light-green: #25D366;
+  --white: #FFFFFF;
+  --text: #2C2C2C;
+  --text-light: #666;
+  --border: #E0E0E0;
+  --danger: #E53935;
+  --blue: #1565C0;
+  --radius: 16px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text);overflow-x:hidden;background:#f5f5f5;}
+button{cursor:pointer;font-family:inherit;}
+
+/* ===== SPLASH / LANGUAGE SELECTION ===== */
+#splash-screen {
+  position:fixed;inset:0;z-index:10000;
+  background:linear-gradient(135deg,var(--navy) 0%,var(--green-dark) 50%,var(--green) 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:white;transition:opacity 0.5s,transform 0.5s;
+}
+#splash-screen.hidden{display:none !important;}
+.splash-logo{width:100px;height:100px;background:rgba(255,255,255,0.15);border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:2.8rem;margin-bottom:24px;border:2px solid rgba(200,169,81,0.3);}
+.splash-title{font-size:2rem;font-weight:800;margin-bottom:6px;}
+.splash-title span{color:var(--gold);}
+.splash-sub{opacity:0.7;font-size:0.95rem;margin-bottom:40px;}
+.lang-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:500px;width:90%;margin-bottom:30px;}
+.lang-btn{
+  background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.15);
+  color:white;padding:18px 12px;border-radius:14px;text-align:center;
+  transition:all 0.25s;display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.lang-btn:hover,.lang-btn:focus{background:rgba(255,255,255,0.18);border-color:var(--gold);transform:translateY(-2px);}
+.lang-btn .flag{font-size:1.6rem;}
+.lang-btn .name{font-size:0.82rem;font-weight:600;}
+.lang-btn .native{font-size:0.72rem;opacity:0.6;}
+.detect-btn{
+  background:rgba(200,169,81,0.2);border:1px solid rgba(200,169,81,0.4);color:var(--gold);
+  padding:12px 28px;border-radius:30px;font-size:0.85rem;font-weight:600;
+  display:flex;align-items:center;gap:8px;transition:all 0.2s;
+}
+.detect-btn:hover{background:rgba(200,169,81,0.35);}
+
+/* ===== LOCATION PERMISSION ===== */
+#location-screen {
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(135deg,var(--navy) 0%,var(--green-dark) 100%);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  color:white;text-align:center;padding:24px;
+}
+#location-screen.show{display:flex;}
+.loc-icon{font-size:4rem;margin-bottom:20px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
+.loc-title{font-size:1.5rem;font-weight:700;margin-bottom:10px;}
+.loc-sub{opacity:0.7;max-width:400px;margin-bottom:30px;line-height:1.6;}
+.loc-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+.loc-allow{background:var(--wa-light-green);color:white;border:none;padding:14px 32px;border-radius:30px;font-weight:700;font-size:1rem;}
+.loc-skip{background:transparent;border:1px solid rgba(255,255,255,0.3);color:white;padding:14px 24px;border-radius:30px;font-size:0.9rem;}
+.loc-city-manual{margin-top:20px;display:none;flex-direction:column;align-items:center;gap:10px;}
+.loc-city-manual select{padding:12px 20px;border-radius:10px;border:none;font-size:1rem;width:250px;}
+.loc-city-manual button{background:var(--gold);color:var(--navy);border:none;padding:10px 24px;border-radius:8px;font-weight:700;}
+
+/* ===== TOP NAV ===== */
+.top-nav{
+  position:fixed;top:0;left:0;right:0;z-index:5000;
+  background:var(--navy);height:56px;display:none;align-items:center;justify-content:space-between;padding:0 16px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.2);
+}
+.top-nav.show{display:flex;}
+.top-nav .logo{color:white;font-weight:700;font-size:0.95rem;display:flex;align-items:center;gap:8px;}
+.top-nav .logo-icon{width:32px;height:32px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.8rem;color:white;font-weight:800;}
+.top-nav .nav-right{display:flex;align-items:center;gap:12px;}
+.top-nav .city-badge{background:rgba(255,255,255,0.1);color:var(--gold);padding:4px 12px;border-radius:20px;font-size:0.75rem;display:flex;align-items:center;gap:4px;}
+.top-nav .lang-switch{background:none;border:1px solid rgba(255,255,255,0.2);color:white;padding:4px 10px;border-radius:6px;font-size:0.75rem;}
+
+/* ===== BOTTOM TAB BAR ===== */
+.bottom-tabs{
+  position:fixed;bottom:0;left:0;right:0;z-index:5000;
+  background:white;border-top:1px solid var(--border);
+  display:none;justify-content:space-around;padding:6px 0 env(safe-area-inset-bottom,8px);
+  box-shadow:0 -2px 12px rgba(0,0,0,0.06);
+}
+.bottom-tabs.show{display:flex;}
+.tab-btn{
+  background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;
+  color:var(--text-light);font-size:0.65rem;padding:4px 8px;transition:color 0.2s;
+}
+.tab-btn .tab-icon{font-size:1.3rem;}
+.tab-btn.active{color:var(--green);}
+
+/* ===== PAGE CONTAINER ===== */
+.app-page{display:none;margin-top:56px;margin-bottom:60px;min-height:calc(100vh - 116px);}
+.app-page.active{display:block;}
+
+/* ===== CHAT PAGE ===== */
+.chat-container{display:flex;flex-direction:column;height:calc(100vh - 116px);background:var(--wa-bg);}
+.chat-header{
+  background:var(--wa-dark);color:white;padding:10px 16px;
+  display:flex;align-items:center;gap:12px;
+}
+.chat-avatar{width:40px;height:40px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
+.chat-header-info h4{font-size:0.9rem;font-weight:600;}
+.chat-header-info p{font-size:0.72rem;opacity:0.7;}
+.chat-messages{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:6px;}
+.msg{max-width:82%;padding:8px 12px;border-radius:12px;font-size:0.88rem;line-height:1.5;position:relative;animation:msgIn 0.3s ease;}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.msg-bot{background:white;align-self:flex-start;border-top-left-radius:4px;}
+.msg-user{background:var(--wa-green);align-self:flex-end;border-top-right-radius:4px;}
+.msg-time{font-size:0.62rem;color:#999;text-align:right;margin-top:4px;}
+.msg-typing{background:white;align-self:flex-start;border-radius:12px;padding:12px 18px;border-top-left-radius:4px;}
+.typing-dots{display:flex;gap:4px;}
+.typing-dots span{width:8px;height:8px;background:#999;border-radius:50%;animation:blink 1.4s infinite;}
+.typing-dots span:nth-child(2){animation-delay:0.2s;}
+.typing-dots span:nth-child(3){animation-delay:0.4s;}
+@keyframes blink{0%,100%{opacity:0.3;}50%{opacity:1;}}
+
+/* Quick reply chips */
+.quick-replies{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.qr-chip{
+  background:white;border:1.5px solid var(--green);color:var(--green);
+  padding:6px 14px;border-radius:20px;font-size:0.78rem;font-weight:600;
+  cursor:pointer;transition:all 0.2s;
+}
+.qr-chip:hover{background:var(--green);color:white;}
+
+/* Cards in chat */
+.chat-card{
+  background:white;border-radius:12px;overflow:hidden;margin:4px 0;
+  box-shadow:0 1px 4px rgba(0,0,0,0.08);max-width:320px;
+}
+.chat-card-img{width:100%;height:140px;object-fit:cover;background:var(--sand);display:flex;align-items:center;justify-content:center;font-size:3rem;}
+.chat-card-body{padding:10px 12px;}
+.chat-card-body h4{font-size:0.88rem;color:var(--navy);margin-bottom:4px;}
+.chat-card-body .rating{color:var(--gold);font-size:0.78rem;margin-bottom:4px;}
+.chat-card-body p{font-size:0.75rem;color:var(--text-light);line-height:1.4;}
+.chat-card-body .price{font-size:0.95rem;font-weight:700;color:var(--green);margin-top:6px;}
+.chat-card-actions{display:flex;border-top:1px solid var(--border);}
+.chat-card-actions button{flex:1;padding:10px;border:none;background:none;font-size:0.78rem;font-weight:600;color:var(--green);transition:background 0.2s;}
+.chat-card-actions button:hover{background:var(--green-light);}
+.chat-card-actions button:not(:last-child){border-right:1px solid var(--border);}
+
+/* Comparison table in chat */
+.compare-table{width:100%;border-collapse:collapse;font-size:0.75rem;margin:6px 0;}
+.compare-table th{background:var(--navy);color:white;padding:8px 6px;font-weight:600;text-align:center;}
+.compare-table td{padding:7px 6px;border-bottom:1px solid var(--border);text-align:center;}
+.compare-table tr:nth-child(even){background:#f9f9f9;}
+.compare-table .winner{color:var(--green);font-weight:700;}
+
+/* Map placeholder */
+.map-container{
+  width:100%;height:220px;border-radius:12px;overflow:hidden;margin:6px 0;
+  position:relative;z-index:1;
+}
+.map-container .leaflet-container{border-radius:12px;height:100%;width:100%;}
+.leaflet-popup-content{font-family:'Segoe UI',sans-serif;font-size:0.82rem;line-height:1.4;}
+.leaflet-popup-content b{color:var(--navy);}
+.leaflet-popup-content .popup-price{color:var(--green);font-weight:700;margin-top:4px;}
+.leaflet-popup-content .popup-rating{color:var(--gold);font-size:0.75rem;}
+.leaflet-popup-content .popup-book{
+  display:inline-block;margin-top:6px;padding:4px 14px;background:var(--green);color:white;
+  border-radius:6px;font-size:0.72rem;font-weight:600;cursor:pointer;text-decoration:none;
+}
+
+/* Payment modal */
+.payment-modal{
+  position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,0.5);
+  display:none;align-items:center;justify-content:center;padding:16px;
+}
+.payment-modal.show{display:flex;}
+.payment-box{
+  background:white;border-radius:20px;padding:28px;max-width:400px;width:100%;
+  box-shadow:0 20px 60px rgba(0,0,0,0.2);
+}
+.payment-box h3{font-size:1.1rem;color:var(--navy);margin-bottom:4px;}
+.payment-box .pay-amount{font-size:2rem;font-weight:800;color:var(--green);margin:12px 0;}
+.payment-box .pay-methods{display:flex;flex-direction:column;gap:10px;margin:16px 0;}
+.pay-method{
+  display:flex;align-items:center;gap:12px;padding:14px;border:1.5px solid var(--border);
+  border-radius:12px;cursor:pointer;transition:all 0.2s;
+}
+.pay-method:hover,.pay-method.selected{border-color:var(--green);background:var(--green-light);}
+.pay-method .pm-icon{font-size:1.4rem;}
+.pay-method .pm-name{font-weight:600;font-size:0.88rem;}
+.pay-method .pm-sub{font-size:0.72rem;color:var(--text-light);}
+.pay-btn{
+  width:100%;padding:14px;border:none;border-radius:12px;font-size:1rem;font-weight:700;
+  color:white;background:var(--green);margin-top:12px;transition:all 0.2s;
+}
+.pay-btn:hover{background:var(--green-dark);}
+.pay-btn:disabled{background:#ccc;cursor:not-allowed;}
+.pay-success{display:none;text-align:center;padding:20px;}
+.pay-success .check{font-size:3rem;margin-bottom:12px;}
+.pay-success h3{color:var(--green);margin-bottom:6px;}
+.pay-close{margin-top:16px;background:none;border:1px solid var(--border);padding:10px 24px;border-radius:8px;font-size:0.88rem;}
+
+/* Chat input */
+.chat-input-bar{
+  padding:8px 12px;background:white;display:flex;align-items:center;gap:8px;
+  border-top:1px solid var(--border);
+}
+.chat-input{
+  flex:1;padding:10px 16px;border:1px solid var(--border);border-radius:24px;
+  font-size:0.88rem;outline:none;font-family:inherit;
+}
+.chat-input:focus{border-color:var(--green);}
+.chat-send{
+  width:40px;height:40px;border-radius:50%;border:none;
+  background:var(--wa-teal);color:white;font-size:1.1rem;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* ===== EXPLORE PAGE ===== */
+.explore-page{padding:16px;}
+.explore-search{
+  display:flex;gap:8px;margin-bottom:16px;
+}
+.explore-search input{
+  flex:1;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;font-size:0.9rem;
+}
+.explore-search button{
+  background:var(--green);color:white;border:none;padding:0 18px;border-radius:12px;font-size:1.1rem;
+}
+.category-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:12px;-webkit-overflow-scrolling:touch;}
+.cat-pill{
+  display:flex;flex-direction:column;align-items:center;gap:4px;min-width:72px;
+  padding:10px 8px;border-radius:14px;border:1.5px solid var(--border);
+  background:white;font-size:0.7rem;font-weight:600;color:var(--text-light);
+  flex-shrink:0;transition:all 0.2s;
+}
+.cat-pill .cat-icon{font-size:1.5rem;}
+.cat-pill.active{border-color:var(--green);color:var(--green);background:var(--green-light);}
+
+/* Explore map */
+.explore-map{
+  width:100%;height:280px;border-radius:16px;overflow:hidden;margin:12px 0;
+  position:relative;z-index:1;
+}
+.explore-map .leaflet-container{border-radius:16px;height:100%;width:100%;}
+.explore-cards{display:flex;flex-direction:column;gap:12px;margin-top:12px;}
+.explore-card{
+  background:white;border-radius:14px;overflow:hidden;display:flex;
+  box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid var(--border);
+}
+.explore-card-img{width:120px;flex-shrink:0;background:var(--sand);display:flex;align-items:center;justify-content:center;font-size:2.5rem;}
+.explore-card-info{padding:12px;flex:1;}
+.explore-card-info h4{font-size:0.88rem;color:var(--navy);margin-bottom:3px;}
+.explore-card-info .stars{color:var(--gold);font-size:0.75rem;}
+.explore-card-info p{font-size:0.72rem;color:var(--text-light);margin:4px 0;}
+.explore-card-info .dist{font-size:0.72rem;color:var(--blue);display:flex;align-items:center;gap:4px;}
+.explore-card-info .eprice{font-weight:700;color:var(--green);font-size:0.9rem;}
+.explore-card-actions{display:flex;gap:6px;margin-top:6px;}
+.explore-card-actions button{
+  padding:5px 10px;border-radius:6px;font-size:0.7rem;font-weight:600;border:none;
+}
+.btn-book{background:var(--green);color:white;}
+.btn-compare{background:var(--sand);color:var(--navy);}
+.btn-chat{background:var(--wa-bg);color:var(--wa-dark);}
+
+/* ===== HOTEL PAGE ===== */
+.hotel-page{padding:0;}
+.hotel-hero{
+  height:200px;background:linear-gradient(135deg,var(--navy),var(--green-dark));
+  display:flex;align-items:flex-end;padding:16px;position:relative;color:white;
+}
+.hotel-hero .hotel-emoji{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);font-size:5rem;opacity:0.3;}
+.hotel-hero-info{position:relative;z-index:1;}
+.hotel-hero-info h2{font-size:1.3rem;margin-bottom:4px;}
+.hotel-hero-info p{font-size:0.82rem;opacity:0.8;}
+.hotel-hero-info .hotel-rating{color:var(--gold);margin-top:4px;font-size:0.85rem;}
+
+.hotel-services{padding:16px;}
+.hotel-services h3{font-size:1rem;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.service-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+.service-card{
+  background:white;border:1.5px solid var(--border);border-radius:14px;padding:16px 10px;
+  text-align:center;transition:all 0.25s;cursor:pointer;
+}
+.service-card:hover{border-color:var(--green);transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.08);}
+.service-card .svc-icon{font-size:1.8rem;margin-bottom:6px;}
+.service-card .svc-name{font-size:0.75rem;font-weight:600;color:var(--navy);}
+
+/* Hotel menu */
+.hotel-menu{padding:0 16px 16px;}
+.menu-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:4px;}
+.menu-tab{
+  padding:8px 16px;border-radius:20px;border:1.5px solid var(--border);
+  background:white;font-size:0.78rem;font-weight:600;color:var(--text-light);
+  white-space:nowrap;transition:all 0.2s;
+}
+.menu-tab.active{background:var(--green);color:white;border-color:var(--green);}
+.menu-items{display:flex;flex-direction:column;gap:10px;}
+.menu-item{
+  display:flex;align-items:center;gap:12px;background:white;
+  border:1px solid var(--border);border-radius:12px;padding:10px;
+}
+.menu-item-img{width:60px;height:60px;border-radius:10px;background:var(--sand);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;}
+.menu-item-info{flex:1;}
+.menu-item-info h4{font-size:0.82rem;color:var(--navy);}
+.menu-item-info p{font-size:0.7rem;color:var(--text-light);margin-top:2px;}
+.menu-item-info .mprice{font-weight:700;color:var(--green);font-size:0.85rem;margin-top:4px;}
+.menu-item-add{
+  width:32px;height:32px;border-radius:50%;border:1.5px solid var(--green);
+  background:white;color:var(--green);font-size:1.1rem;display:flex;
+  align-items:center;justify-content:center;transition:all 0.2s;
+}
+.menu-item-add:hover{background:var(--green);color:white;}
+
+/* Cart floating */
+.cart-float{
+  position:fixed;bottom:72px;right:16px;z-index:6000;
+  background:var(--green);color:white;border-radius:50%;
+  width:56px;height:56px;display:none;align-items:center;justify-content:center;
+  font-size:1.4rem;box-shadow:0 4px 16px rgba(0,108,53,0.4);
+}
+.cart-float.show{display:flex;}
+.cart-badge{
+  position:absolute;top:-4px;right:-4px;background:var(--danger);
+  color:white;font-size:0.65rem;font-weight:700;
+  width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+}
+
+/* ===== TRIPS PAGE ===== */
+.trips-page{padding:16px;}
+.trip-card{
+  background:white;border-radius:16px;overflow:hidden;margin-bottom:14px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid var(--border);
+}
+.trip-card-header{
+  padding:16px;display:flex;align-items:center;gap:12px;
+}
+.trip-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;}
+.trip-icon.green{background:var(--green-light);}
+.trip-icon.gold{background:var(--gold-light);}
+.trip-icon.sand{background:var(--sand);}
+.trip-info h4{font-size:0.92rem;color:var(--navy);}
+.trip-info p{font-size:0.75rem;color:var(--text-light);margin-top:2px;}
+.trip-info .trip-price{font-weight:700;color:var(--green);font-size:0.9rem;margin-top:4px;}
+.trip-card-footer{
+  border-top:1px solid var(--border);display:flex;
+}
+.trip-card-footer button{
+  flex:1;padding:12px;border:none;background:none;font-size:0.8rem;font-weight:600;
+  color:var(--green);transition:background 0.2s;
+}
+.trip-card-footer button:hover{background:var(--green-light);}
+.trip-card-footer button:not(:last-child){border-right:1px solid var(--border);}
+
+/* ===== TOAST ===== */
+.toast{
+  position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-20px);
+  background:var(--navy);color:white;padding:12px 24px;border-radius:12px;
+  font-size:0.85rem;font-weight:600;z-index:9000;opacity:0;
+  transition:all 0.3s;pointer-events:none;
+  box-shadow:0 4px 20px rgba(0,0,0,0.2);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:480px){
+  .lang-grid{grid-template-columns:repeat(2,1fr);}
+  .service-grid{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<!-- =============== SPLASH: LANGUAGE SELECTION =============== -->
+<div id="splash-screen">
+  <div class="splash-logo">🕌</div>
+  <div class="splash-title">Saudia <span>Concierge</span></div>
+  <div class="splash-sub">Your personal AI travel assistant in Saudi Arabia</div>
+
+  <div class="lang-grid" id="langGrid">
+    <button class="lang-btn" onclick="selectLanguage('en',event)"><span class="flag">🇬🇧</span><span class="name">English</span><span class="native">English</span></button>
+    <button class="lang-btn" onclick="selectLanguage('ar',event)"><span class="flag">🇸🇦</span><span class="name">العربية</span><span class="native">Arabic</span></button>
+    <button class="lang-btn" onclick="selectLanguage('fr',event)"><span class="flag">🇫🇷</span><span class="name">Français</span><span class="native">French</span></button>
+    <button class="lang-btn" onclick="selectLanguage('de',event)"><span class="flag">🇩🇪</span><span class="name">Deutsch</span><span class="native">German</span></button>
+    <button class="lang-btn" onclick="selectLanguage('zh',event)"><span class="flag">🇨🇳</span><span class="name">中文</span><span class="native">Chinese</span></button>
+    <button class="lang-btn" onclick="selectLanguage('ja',event)"><span class="flag">🇯🇵</span><span class="name">日本語</span><span class="native">Japanese</span></button>
+    <button class="lang-btn" onclick="selectLanguage('ko',event)"><span class="flag">🇰🇷</span><span class="name">한국어</span><span class="native">Korean</span></button>
+    <button class="lang-btn" onclick="selectLanguage('es',event)"><span class="flag">🇪🇸</span><span class="name">Español</span><span class="native">Spanish</span></button>
+    <button class="lang-btn" onclick="selectLanguage('hi',event)"><span class="flag">🇮🇳</span><span class="name">हिन्दी</span><span class="native">Hindi</span></button>
+    <button class="lang-btn" onclick="selectLanguage('ur',event)"><span class="flag">🇵🇰</span><span class="name">اردو</span><span class="native">Urdu</span></button>
+    <button class="lang-btn" onclick="selectLanguage('ru',event)"><span class="flag">🇷🇺</span><span class="name">Русский</span><span class="native">Russian</span></button>
+    <button class="lang-btn" onclick="selectLanguage('pt',event)"><span class="flag">🇧🇷</span><span class="name">Português</span><span class="native">Portuguese</span></button>
+  </div>
+
+  <button class="detect-btn" onclick="autoDetectLanguage()">
+    🌐 <span>Auto-detect my language</span>
+  </button>
+</div>
+
+<!-- =============== LOCATION PERMISSION =============== -->
+<div id="location-screen">
+  <div class="loc-icon">📍</div>
+  <div class="loc-title" id="locTitle">Where are you right now?</div>
+  <div class="loc-sub" id="locSub">We'll personalize your experience — nearby restaurants, attractions, and services based on your location.</div>
+  <div class="loc-actions">
+    <button class="loc-allow" onclick="requestLocation()" id="locAllow">📍 Share My Location</button>
+    <button class="loc-skip" onclick="showCityPicker()" id="locSkip">Choose a city</button>
+  </div>
+  <div class="loc-city-manual" id="cityPicker">
+    <select id="citySelect">
+      <option value="">-- Select City --</option>
+      <option value="riyadh">Riyadh</option>
+      <option value="jeddah">Jeddah</option>
+      <option value="makkah">Makkah</option>
+      <option value="madinah">Madinah</option>
+      <option value="dammam">Dammam</option>
+      <option value="alkhobar">Al Khobar</option>
+      <option value="abha">Abha</option>
+      <option value="taif">Taif</option>
+      <option value="neom">NEOM</option>
+      <option value="alula">AlUla</option>
+    </select>
+    <button onclick="confirmCity()">Continue</button>
+  </div>
+</div>
+
+<!-- =============== TOP NAVIGATION =============== -->
+<nav class="top-nav" id="topNav">
+  <div class="logo">
+    <div class="logo-icon">SC</div>
+    <span>Saudia Concierge</span>
+  </div>
+  <div class="nav-right">
+    <div class="city-badge" id="cityBadge">📍 Riyadh</div>
+    <button class="lang-switch" id="langSwitch" onclick="changeLang()">EN</button>
+  </div>
+</nav>
+
+<!-- =============== BOTTOM TABS =============== -->
+<div class="bottom-tabs" id="bottomTabs">
+  <button class="tab-btn active" onclick="switchTab('chat')"><span class="tab-icon">💬</span><span id="tabChat">Chat</span></button>
+  <button class="tab-btn" onclick="switchTab('explore')"><span class="tab-icon">🔍</span><span id="tabExplore">Explore</span></button>
+  <button class="tab-btn" onclick="switchTab('hotel')"><span class="tab-icon">🏨</span><span id="tabHotel">My Hotel</span></button>
+  <button class="tab-btn" onclick="switchTab('trips')"><span class="tab-icon">🗺️</span><span id="tabTrips">Trips</span></button>
+</div>
+
+<!-- =============== PAGE: CHAT =============== -->
+<div class="app-page active" id="page-chat">
+  <div class="chat-container">
+    <div class="chat-header">
+      <div class="chat-avatar">🤖</div>
+      <div class="chat-header-info">
+        <h4>Saudia Concierge AI</h4>
+        <p id="chatStatus">online — responds instantly</p>
+      </div>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-bar">
+      <input type="text" class="chat-input" id="chatInput" placeholder="Type a message..." onkeypress="if(event.key==='Enter')sendUserMessage()">
+      <button class="chat-send" onclick="sendUserMessage()">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============== PAGE: EXPLORE =============== -->
+<div class="app-page" id="page-explore">
+  <div class="explore-page">
+    <div class="explore-search">
+      <input type="text" placeholder="Search places, restaurants, activities..." id="exploreSearchInput">
+      <button onclick="exploreSearch()">🔍</button>
+    </div>
+    <div class="category-scroll" id="categoryScroll"></div>
+    <div class="explore-map" id="exploreMapWrap">
+      <div id="exploreMapLeaflet" style="height:100%;width:100%;"></div>
+    </div>
+    <div class="explore-cards" id="exploreCards"></div>
+  </div>
+</div>
+
+<!-- =============== PAGE: HOTEL =============== -->
+<div class="app-page" id="page-hotel">
+  <div class="hotel-page">
+    <div class="hotel-hero">
+      <div class="hotel-emoji">🏨</div>
+      <div class="hotel-hero-info">
+        <h2 id="hotelName">The Ritz-Carlton, Riyadh</h2>
+        <p id="hotelAddr">Al Hada Area, Riyadh 11493</p>
+        <div class="hotel-rating">⭐⭐⭐⭐⭐ 4.8 (2,340 reviews)</div>
+      </div>
+    </div>
+    <div class="hotel-services">
+      <h3>🛎️ <span id="svcTitle">Hotel Services</span></h3>
+      <div class="service-grid" id="serviceGrid"></div>
+    </div>
+    <div class="hotel-menu" id="hotelMenuSection">
+      <h3 style="margin-bottom:12px;">🍽️ <span id="menuTitle">Room Service Menu</span></h3>
+      <div class="menu-tabs" id="menuTabs"></div>
+      <div class="menu-items" id="menuItems"></div>
+    </div>
+  </div>
+</div>
+
+<!-- =============== PAGE: TRIPS =============== -->
+<div class="app-page" id="page-trips">
+  <div class="trips-page">
+    <h3 style="color:var(--navy);margin-bottom:14px;" id="tripsTitle">🗺️ Recommended Trips</h3>
+    <div id="tripsList"></div>
+  </div>
+</div>
+
+<!-- =============== CART FLOAT =============== -->
+<div class="cart-float" id="cartFloat" onclick="openPayment()">
+  🛒
+  <div class="cart-badge" id="cartBadge">0</div>
+</div>
+
+<!-- =============== PAYMENT MODAL =============== -->
+<div class="payment-modal" id="paymentModal">
+  <div class="payment-box">
+    <div id="paymentForm">
+      <h3 id="payTitle">Complete Payment</h3>
+      <div class="pay-amount" id="payAmount">SAR 0</div>
+      <div style="font-size:0.8rem;color:var(--text-light);margin-bottom:8px;" id="payItemsList"></div>
+      <div class="pay-methods" id="payMethods">
+        <div class="pay-method" onclick="selectPay(this,'apple')"><span class="pm-icon">🍎</span><div><div class="pm-name">Apple Pay</div><div class="pm-sub">Quick & secure</div></div></div>
+        <div class="pay-method" onclick="selectPay(this,'mada')"><span class="pm-icon">💳</span><div><div class="pm-name">Mada</div><div class="pm-sub">Saudi debit card</div></div></div>
+        <div class="pay-method" onclick="selectPay(this,'visa')"><span class="pm-icon">💳</span><div><div class="pm-name">Visa / Mastercard</div><div class="pm-sub">Credit or debit</div></div></div>
+        <div class="pay-method" onclick="selectPay(this,'stc')"><span class="pm-icon">📱</span><div><div class="pm-name">STC Pay</div><div class="pm-sub">Mobile wallet</div></div></div>
+        <div class="pay-method" onclick="selectPay(this,'tabby')"><span class="pm-icon">🟣</span><div><div class="pm-name">Tabby</div><div class="pm-sub">Buy now, pay later (4 installments)</div></div></div>
+      </div>
+      <button class="pay-btn" id="payBtn" disabled onclick="processPayment()">Pay Now</button>
+      <button class="pay-close" onclick="closePayment()" style="width:100%;margin-top:8px;">Cancel</button>
+    </div>
+    <div class="pay-success" id="paySuccess">
+      <div class="check">✅</div>
+      <h3>Payment Successful!</h3>
+      <p style="color:var(--text-light);font-size:0.88rem;margin:8px 0;">Confirmation sent to your WhatsApp</p>
+      <div style="background:var(--green-light);padding:12px;border-radius:10px;margin:12px 0;font-size:0.82rem;">
+        <strong>Booking #SC-2026-4821</strong><br>
+        <span style="color:var(--text-light);" id="payConfirmDetail"></span>
+      </div>
+      <button class="pay-close" onclick="closePayment()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============== TOAST =============== -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================
+// GLOBAL STATE
+// ============================
+let LANG = 'en';
+let CITY = 'riyadh';
+let COORDS = null;
+let cart = [];
+let selectedPayMethod = null;
+let conversationState = 'welcome'; // tracks chat flow
+let chatHistory = [];
+
+// ============================
+// TRANSLATIONS (full i18n)
+// ============================
+const T = {
+  en: {
+    welcome: "Hello! 👋 Welcome to Saudi Arabia! I'm your personal AI concierge.\n\nI can help you with:\n🏨 Hotel services & room orders\n🍽️ Find restaurants & compare options\n🚗 Book cars & transportation\n🗺️ Plan trips & excursions\n💆 Spa, laundry & hotel amenities\n💳 Payments — all in one place\n\nWhat would you like to do?",
+    welcomeChips: ["Find a restaurant", "Hotel services", "Book a trip", "Rent a car", "What's nearby?", "Airport transfer"],
+    askCuisine: "Great choice! 🍽️ Let me help you find the perfect restaurant.\n\nWhat type of cuisine are you in the mood for?",
+    cuisineChips: ["Saudi / Arabic", "Japanese / Sushi", "Italian", "Indian", "Burgers & American", "Surprise me!"],
+    askBudget: "And what's your budget range per person?",
+    budgetChips: ["💰 Budget (under 80 SAR)", "💰💰 Mid-range (80-200 SAR)", "💰💰💰 Fine dining (200+ SAR)"],
+    askAtmosphere: "Last question — what atmosphere do you prefer?",
+    atmosphereChips: ["Family friendly", "Romantic / Date", "Casual with friends", "Business meeting", "Don't care"],
+    restaurantIntro: "Based on your preferences, here are my top 3 recommendations.\nI've marked them on the map — tap any to see details! 📍",
+    compareAsk: "Would you like me to compare these options side by side?",
+    compareChips: ["Yes, compare them", "Book #1", "Book #2", "Book #3", "Show more options"],
+    hotelServiceAsk: "What hotel service do you need?",
+    hotelChips: ["Room service menu", "Spa & massage", "Laundry & dry cleaning", "Pool & gym hours", "Extra pillows/towels", "Late checkout"],
+    menuShown: "Here's the room service menu! 🍽️\nTap + to add items, then I'll place the order to your room.\n\n👆 Switch to the Hotel tab to browse the full menu.",
+    orderConfirm: "I've placed your order! 🎉\nEstimated delivery to your room: 25-30 minutes.\n\nWould you like anything else?",
+    tripIntro: "Here are some amazing trips from {city}! 🗺️\nI can book any of these for you, or customize one.",
+    carRental: "I can arrange car rental for you! 🚗\n\nWhat type of car do you need?",
+    carChips: ["Economy (from 120 SAR/day)", "SUV (from 250 SAR/day)", "Luxury (from 500 SAR/day)", "With driver (from 350 SAR/day)"],
+    nearbyIntro: "Let me check what's near you... 📍\n\nHere's what I found within walking distance:",
+    nearbyChips: ["Restaurants", "Coffee shops", "ATMs", "Pharmacies", "Malls", "Mosques"],
+    airportIntro: "I can arrange airport transfer! ✈️\n\nWhich airport and when?",
+    airportChips: ["King Khalid (Riyadh)", "King Abdulaziz (Jeddah)", "Prince Mohammed (Madinah)", "King Fahd (Dammam)"],
+    paymentReady: "Your booking is ready! 💳\nTotal: {amount} SAR\n\nTap the payment button below to complete.",
+    chat: "Chat", explore: "Explore", myHotel: "My Hotel", trips: "Trips",
+    hotelServices: "Hotel Services", roomService: "Room Service Menu",
+    recTrips: "Recommended Trips", searchPlaces: "Search places, restaurants, activities...",
+    online: "online — responds instantly"
+  },
+  ar: {
+    welcome: "مرحباً! 👋 أهلاً وسهلاً بك في المملكة العربية السعودية!\nأنا مساعدك الشخصي الذكي.\n\nأقدر أساعدك في:\n🏨 خدمات الفندق وطلبات الغرفة\n🍽️ البحث عن مطاعم ومقارنة الخيارات\n🚗 حجز سيارات ومواصلات\n🗺️ تخطيط رحلات وجولات\n💆 سبا وغسيل ملابس وخدمات الفندق\n💳 الدفع — كل شيء في مكان واحد\n\nكيف أقدر أساعدك؟",
+    welcomeChips: ["أبحث عن مطعم", "خدمات الفندق", "حجز رحلة", "تأجير سيارة", "إيش قريب مني؟", "توصيل المطار"],
+    askCuisine: "اختيار ممتاز! 🍽️ خلني أساعدك تلقى المطعم المثالي.\n\nأي نوع أكل تبي؟",
+    cuisineChips: ["سعودي / عربي", "ياباني / سوشي", "إيطالي", "هندي", "برقر وأمريكي", "فاجئني!"],
+    askBudget: "وكم ميزانيتك للشخص؟",
+    budgetChips: ["💰 اقتصادي (أقل من 80 ريال)", "💰💰 متوسط (80-200 ريال)", "💰💰💰 فاخر (200+ ريال)"],
+    askAtmosphere: "آخر سؤال — إيش الجو اللي تفضله؟",
+    atmosphereChips: ["عائلي", "رومانسي", "مع الأصدقاء", "اجتماع عمل", "مو مهم"],
+    restaurantIntro: "بناءً على اختياراتك، هذي أفضل 3 خيارات.\nحطيتها على الخريطة — اضغط على أي وحدة تشوف التفاصيل! 📍",
+    compareAsk: "تبي أقارنها لك جنب بعض؟",
+    compareChips: ["إي، قارنها", "احجز #1", "احجز #2", "احجز #3", "عرض المزيد"],
+    hotelServiceAsk: "إيش الخدمة اللي تحتاجها؟",
+    hotelChips: ["قائمة خدمة الغرف", "سبا ومساج", "غسيل ملابس", "مواعيد المسبح والجيم", "وسائد/مناشف إضافية", "تأخير المغادرة"],
+    menuShown: "هذي قائمة خدمة الغرف! 🍽️\nاضغط + تضيف أصناف، وأنا أطلبها لغرفتك.\n\n👆 روح لتبويب الفندق تشوف القائمة كاملة.",
+    orderConfirm: "طلبك راح يوصل! 🎉\nالوقت المتوقع: 25-30 دقيقة.\n\nتبي شي ثاني؟",
+    tripIntro: "هذي رحلات رائعة من {city}! 🗺️\nأقدر أحجز أي وحدة، أو أصمم لك رحلة خاصة.",
+    carRental: "أقدر أرتب لك تأجير سيارة! 🚗\n\nإيش نوع السيارة اللي تبي؟",
+    carChips: ["اقتصادي (من 120 ريال/يوم)", "دفع رباعي (من 250 ريال/يوم)", "فاخرة (من 500 ريال/يوم)", "مع سائق (من 350 ريال/يوم)"],
+    nearbyIntro: "خلني أشيك إيش قريب منك... 📍\n\nهذا اللي لقيته على مسافة مشي:",
+    nearbyChips: ["مطاعم", "كافيهات", "صرافات", "صيدليات", "مولات", "مساجد"],
+    airportIntro: "أقدر أرتب لك توصيل المطار! ✈️\n\nأي مطار ومتى؟",
+    airportChips: ["الملك خالد (الرياض)", "الملك عبدالعزيز (جدة)", "الأمير محمد (المدينة)", "الملك فهد (الدمام)"],
+    paymentReady: "حجزك جاهز! 💳\nالمجموع: {amount} ريال\n\nاضغط زر الدفع تحت.",
+    chat: "محادثة", explore: "استكشف", myHotel: "فندقي", trips: "رحلات",
+    hotelServices: "خدمات الفندق", roomService: "قائمة خدمة الغرف",
+    recTrips: "🗺️ رحلات مقترحة", searchPlaces: "ابحث عن أماكن، مطاعم، أنشطة...",
+    online: "متصل — يرد فوراً"
+  },
+  fr: {
+    welcome: "Bonjour! 👋 Bienvenue en Arabie Saoudite!\nJe suis votre concierge IA personnel.\n\nJe peux vous aider avec:\n🏨 Services hôteliers & room service\n🍽️ Trouver des restaurants & comparer\n🚗 Location de voitures & transport\n🗺️ Planifier des excursions\n💆 Spa, blanchisserie & services\n💳 Paiements — tout en un\n\nQue souhaitez-vous faire?",
+    welcomeChips: ["Trouver un restaurant", "Services hôteliers", "Réserver une excursion", "Louer une voiture", "Qu'y a-t-il à proximité?", "Transfert aéroport"],
+    askCuisine: "Excellent choix! 🍽️ Quel type de cuisine souhaitez-vous?",
+    cuisineChips: ["Saoudien / Arabe", "Japonais / Sushi", "Italien", "Indien", "Burgers & Américain", "Surprenez-moi!"],
+    askBudget: "Quel est votre budget par personne?",
+    budgetChips: ["💰 Économique (<80 SAR)", "💰💰 Moyen (80-200 SAR)", "💰💰💰 Gastronomique (200+ SAR)"],
+    askAtmosphere: "Dernière question — quelle ambiance préférez-vous?",
+    atmosphereChips: ["Familiale", "Romantique", "Décontractée entre amis", "Réunion d'affaires", "Peu importe"],
+    restaurantIntro: "Voici mes 3 meilleures recommandations.\nJe les ai marquées sur la carte! 📍",
+    compareAsk: "Voulez-vous que je les compare côte à côte?",
+    compareChips: ["Oui, comparez-les", "Réserver #1", "Réserver #2", "Réserver #3", "Plus d'options"],
+    hotelServiceAsk: "De quel service avez-vous besoin?",
+    hotelChips: ["Menu room service", "Spa & massage", "Blanchisserie", "Horaires piscine/gym", "Oreillers/serviettes supp.", "Départ tardif"],
+    menuShown: "Voici le menu du room service! 🍽️\nAppuyez sur + pour ajouter des plats.\n\n👆 Allez dans l'onglet Hôtel pour le menu complet.",
+    orderConfirm: "Votre commande est passée! 🎉\nLivraison estimée: 25-30 minutes.\n\nAutre chose?",
+    tripIntro: "Voici des excursions incroyables depuis {city}! 🗺️",
+    carRental: "Je peux organiser une location de voiture! 🚗\n\nQuel type de véhicule?",
+    carChips: ["Économique (dès 120 SAR/jour)", "SUV (dès 250 SAR/jour)", "Luxe (dès 500 SAR/jour)", "Avec chauffeur (dès 350 SAR/jour)"],
+    nearbyIntro: "Voyons ce qu'il y a près de vous... 📍",
+    nearbyChips: ["Restaurants", "Cafés", "Distributeurs", "Pharmacies", "Centres commerciaux", "Mosquées"],
+    airportIntro: "Je peux organiser un transfert aéroport! ✈️",
+    airportChips: ["King Khalid (Riyad)", "King Abdulaziz (Djeddah)", "Prince Mohammed (Médine)", "King Fahd (Dammam)"],
+    paymentReady: "Votre réservation est prête! 💳\nTotal: {amount} SAR",
+    chat: "Chat", explore: "Explorer", myHotel: "Mon Hôtel", trips: "Excursions",
+    hotelServices: "Services Hôteliers", roomService: "Menu Room Service",
+    recTrips: "🗺️ Excursions Recommandées", searchPlaces: "Rechercher lieux, restaurants, activités...",
+    online: "en ligne — répond instantanément"
+  },
+  // Fallback for other langs — use English with a note
+};
+
+// For languages without full translation, use English
+function t(key) {
+  if (T[LANG] && T[LANG][key]) return T[LANG][key];
+  if (T['en'][key]) return T['en'][key];
+  return key;
+}
+
+// ============================
+// CITY DATA
+// ============================
+const CITY_NAMES = {
+  riyadh:'Riyadh',jeddah:'Jeddah',makkah:'Makkah',madinah:'Madinah',
+  dammam:'Dammam',alkhobar:'Al Khobar',abha:'Abha',taif:'Taif',neom:'NEOM',alula:'AlUla'
+};
+const CITY_COORDS = {
+  riyadh:{lat:24.7136,lng:46.6753},jeddah:{lat:21.5428,lng:39.1728},
+  makkah:{lat:21.4225,lng:39.8262},madinah:{lat:24.4672,lng:39.6112},
+  dammam:{lat:26.4207,lng:50.0888},alkhobar:{lat:26.2172,lng:50.1971},
+  abha:{lat:18.2164,lng:42.5053},taif:{lat:21.2703,lng:40.4158},
+  neom:{lat:27.9500,lng:35.2000},alula:{lat:26.6174,lng:37.9189}
+};
+
+// ============================
+// RESTAURANT DATA (per city)
+// ============================
+const RESTAURANTS = {
+  riyadh: [
+    {name:"Takya",nameAr:"تكية",cuisine:"Saudi",rating:"4.8 ⭐",price:"120-180 SAR",budget:"mid",atm:"family",lat:24.7136,lng:46.6753,icon:"🍖",reviews:"3.2K",dist:"1.2 km",desc:"Authentic Najdi cuisine with modern presentation. Famous for kabsa and jareesh."},
+    {name:"Myazu",nameAr:"مياتزو",cuisine:"Japanese",rating:"4.7 ⭐",price:"200-350 SAR",budget:"fine",atm:"romantic",lat:24.7113,lng:46.6570,icon:"🍣",reviews:"1.8K",dist:"2.4 km",desc:"Premium Japanese dining in Kingdom Tower. Omakase and signature rolls."},
+    {name:"LPM Restaurant",nameAr:"LPM",cuisine:"French-Med",rating:"4.6 ⭐",price:"250-400 SAR",budget:"fine",atm:"business",lat:24.6908,lng:46.6250,icon:"🥘",reviews:"2.1K",dist:"3.1 km",desc:"French-Mediterranean in Diplomatic Quarter. Business lunch favorite."},
+    {name:"Mama Noura",nameAr:"ماما نوره",cuisine:"Arabic",rating:"4.5 ⭐",price:"40-70 SAR",budget:"budget",atm:"casual",lat:24.6942,lng:46.6854,icon:"🧆",reviews:"12K",dist:"0.8 km",desc:"Legendary shawarma & grills chain. Open 24/7."},
+    {name:"The Globe",nameAr:"ذا قلوب",cuisine:"International",rating:"4.9 ⭐",price:"300-500 SAR",budget:"fine",atm:"romantic",lat:24.6900,lng:46.6850,icon:"🌍",reviews:"4.5K",dist:"2.8 km",desc:"Al Faisaliah Tower sky dining with panoramic views."},
+    {name:"Nusret (Salt Bae)",nameAr:"نصرت",cuisine:"Steakhouse",rating:"4.4 ⭐",price:"350-600 SAR",budget:"fine",atm:"casual",lat:24.7680,lng:46.6345,icon:"🥩",reviews:"8.2K",dist:"3.5 km",desc:"Famous Turkish steakhouse. Signature gold-wrapped steak."},
+  ],
+  jeddah: [
+    {name:"Al Nakheel",nameAr:"النخيل",cuisine:"Seafood",rating:"4.7 ⭐",price:"150-250 SAR",budget:"mid",atm:"family",lat:21.5428,lng:39.1728,icon:"🐟",reviews:"5.1K",dist:"1.5 km",desc:"Fresh Red Sea seafood on the Corniche."},
+    {name:"Twina",nameAr:"تـوينا",cuisine:"Japanese",rating:"4.8 ⭐",price:"200-350 SAR",budget:"fine",atm:"romantic",lat:21.5580,lng:39.1310,icon:"🍣",reviews:"2.3K",dist:"2.1 km",desc:"Upscale sushi with Red Sea views."},
+    {name:"Bafarat",nameAr:"بافرات",cuisine:"Hijazi",rating:"4.6 ⭐",price:"50-80 SAR",budget:"budget",atm:"casual",lat:21.4858,lng:39.1862,icon:"🫓",reviews:"9.8K",dist:"0.9 km",desc:"Traditional Hijazi breakfast and foul. A Jeddah institution."},
+  ]
+};
+// Default to riyadh for other cities
+function getRestaurants(city) {
+  return RESTAURANTS[city] || RESTAURANTS.riyadh;
+}
+
+// ============================
+// HOTEL SERVICES DATA
+// ============================
+const HOTEL_SERVICES = [
+  {icon:"🍽️",name:"Room Service",nameAr:"خدمة الغرف",action:"menu"},
+  {icon:"💆",name:"Spa & Wellness",nameAr:"سبا وعافية",action:"spa"},
+  {icon:"👔",name:"Laundry",nameAr:"غسيل ملابس",action:"laundry"},
+  {icon:"🏊",name:"Pool & Gym",nameAr:"مسبح وجيم",action:"pool"},
+  {icon:"🛏️",name:"Housekeeping",nameAr:"تنظيف الغرفة",action:"housekeeping"},
+  {icon:"🚗",name:"Valet Parking",nameAr:"خدمة صف السيارات",action:"valet"},
+  {icon:"✈️",name:"Airport Transfer",nameAr:"نقل المطار",action:"airport"},
+  {icon:"👶",name:"Babysitting",nameAr:"رعاية أطفال",action:"babysit"},
+  {icon:"🔑",name:"Late Checkout",nameAr:"تأخير المغادرة",action:"checkout"},
+];
+
+const HOTEL_MENU = {
+  breakfast: [
+    {name:"Full Saudi Breakfast",nameAr:"فطور سعودي كامل",desc:"Ful, falafel, eggs, bread, cheese, honey",icon:"🫓",price:85},
+    {name:"Continental Breakfast",nameAr:"فطور كونتيننتال",desc:"Croissant, jam, butter, fresh juice, coffee",icon:"🥐",price:65},
+    {name:"Eggs Benedict",nameAr:"بيض بنديكت",desc:"Poached eggs, hollandaise, English muffin",icon:"🍳",price:72},
+    {name:"Fresh Fruit Platter",nameAr:"طبق فواكه طازجة",desc:"Seasonal fruits, yogurt, granola",icon:"🍇",price:55},
+    {name:"Arabic Coffee & Dates",nameAr:"قهوة عربية وتمر",desc:"Traditional Arabic coffee with premium dates",icon:"☕",price:35},
+  ],
+  lunch: [
+    {name:"Kabsa (Lamb)",nameAr:"كبسة لحم",desc:"Saudi spiced rice with tender lamb, raita",icon:"🍖",price:120},
+    {name:"Grilled Hammour",nameAr:"هامور مشوي",desc:"Fresh Red Sea fish, rice, tahini",icon:"🐟",price:145},
+    {name:"Caesar Salad",nameAr:"سلطة سيزر",desc:"Romaine, parmesan, croutons, grilled chicken",icon:"🥗",price:68},
+    {name:"Lamb Mandi",nameAr:"مندي لحم",desc:"Slow-cooked lamb on fragrant rice",icon:"🍚",price:135},
+    {name:"Club Sandwich",nameAr:"كلوب ساندويتش",desc:"Triple-decker, chicken, fries",icon:"🥪",price:78},
+  ],
+  dinner: [
+    {name:"Wagyu Steak 250g",nameAr:"ستيك واغيو 250غ",desc:"Australian wagyu, truffle mash, asparagus",icon:"🥩",price:320},
+    {name:"Lamb Ouzi",nameAr:"لحم أوزي",desc:"Whole lamb shank, saffron rice, nuts",icon:"🍖",price:165},
+    {name:"Lobster Thermidor",nameAr:"لوبستر ثيرميدور",desc:"Whole lobster, cream sauce, gratin",icon:"🦞",price:285},
+    {name:"Pasta Truffle",nameAr:"باستا بالكمأة",desc:"Fresh tagliatelle, black truffle, parmesan",icon:"🍝",price:145},
+    {name:"Mixed Grill",nameAr:"مشويات مشكلة",desc:"Lamb chops, chicken, kofta, sides",icon:"🔥",price:155},
+  ],
+  drinks: [
+    {name:"Fresh Orange Juice",nameAr:"عصير برتقال طازج",desc:"Freshly squeezed",icon:"🍊",price:32},
+    {name:"Saudi Champagne",nameAr:"شمبانيا سعودية",desc:"Apple, mint, sparkling water",icon:"🥂",price:28},
+    {name:"Mango Smoothie",nameAr:"سموذي مانجو",desc:"Fresh mango, yogurt, honey",icon:"🥭",price:35},
+    {name:"Moroccan Tea",nameAr:"شاي مغربي",desc:"Mint tea with pine nuts",icon:"🍵",price:25},
+    {name:"Iced Latte",nameAr:"لاتيه مثلج",desc:"Double espresso, cold milk",icon:"☕",price:30},
+  ]
+};
+
+// ============================
+// TRIPS DATA
+// ============================
+const TRIPS = {
+  riyadh: [
+    {name:"Edge of the World",nameAr:"حافة العالم",icon:"🏜️",color:"gold",duration:"Full day",price:"350 SAR",desc:"Dramatic cliff views of Tuwaiq Escarpment. Includes 4x4 transport, lunch & guide."},
+    {name:"Diriyah Heritage Tour",nameAr:"جولة الدرعية التراثية",icon:"🏛️",color:"green",duration:"Half day",price:"180 SAR",desc:"UNESCO World Heritage site. At-Turaif district, museums & traditional market."},
+    {name:"Red Sand Dunes Safari",nameAr:"سفاري الرمال الحمراء",icon:"🐪",color:"sand",duration:"4 hours",price:"280 SAR",desc:"Dune bashing, camel ride, sandboarding, BBQ dinner under stars."},
+    {name:"Riyadh Season Experience",nameAr:"تجربة موسم الرياض",icon:"🎭",color:"gold",duration:"Evening",price:"150 SAR",desc:"Entertainment, concerts, shows & dining at Boulevard City."},
+    {name:"Ushaiger Heritage Village",nameAr:"قرية أشيقر التراثية",icon:"🏘️",color:"green",duration:"Full day",price:"220 SAR",desc:"400-year-old village in Washm region. Traditional mud houses & farm experience."},
+  ],
+  jeddah: [
+    {name:"Old Jeddah (Al-Balad)",nameAr:"جدة التاريخية",icon:"🏛️",color:"green",duration:"Half day",price:"150 SAR",desc:"UNESCO site. Coral stone buildings, souks & street art."},
+    {name:"Red Sea Diving",nameAr:"غوص البحر الأحمر",icon:"🤿",color:"gold",duration:"Full day",price:"450 SAR",desc:"Coral reefs, tropical fish, certified instructor included."},
+    {name:"Corniche Sunset Cruise",nameAr:"رحلة الكورنيش عند الغروب",icon:"⛵",color:"sand",duration:"3 hours",price:"200 SAR",desc:"Yacht cruise along Jeddah waterfront with dinner."},
+  ]
+};
+
+function getTrips(city) { return TRIPS[city] || TRIPS.riyadh; }
+
+// ============================
+// EXPLORE CATEGORIES
+// ============================
+const CATEGORIES = [
+  {id:"restaurants",icon:"🍽️",name:"Restaurants",nameAr:"مطاعم"},
+  {id:"coffee",icon:"☕",name:"Coffee",nameAr:"كافيهات"},
+  {id:"hotels",icon:"🏨",name:"Hotels",nameAr:"فنادق"},
+  {id:"malls",icon:"🛍️",name:"Shopping",nameAr:"تسوق"},
+  {id:"attractions",icon:"🏛️",name:"Attractions",nameAr:"معالم"},
+  {id:"mosques",icon:"🕌",name:"Mosques",nameAr:"مساجد"},
+  {id:"parks",icon:"🌳",name:"Parks",nameAr:"حدائق"},
+  {id:"health",icon:"🏥",name:"Health",nameAr:"صحة"},
+];
+
+// ============================
+// LANGUAGE SELECTION
+// ============================
+function selectLanguage(lang, evt) {
+  LANG = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.style.border = '1.5px solid rgba(255,255,255,0.15)');
+  if (evt && evt.currentTarget) evt.currentTarget.style.border = '2px solid var(--gold)';
+  setTimeout(() => {
+    document.getElementById('splash-screen').classList.add('hidden');
+    document.getElementById('location-screen').classList.add('show');
+    updateLocationScreenText();
+  }, 400);
+}
+
+function autoDetectLanguage() {
+  const browserLang = navigator.language.split('-')[0];
+  const supported = ['en','ar','fr','de','zh','ja','ko','es','hi','ur','ru','pt'];
+  LANG = supported.includes(browserLang) ? browserLang : 'en';
+  showToast(`Detected: ${LANG.toUpperCase()}`);
+  setTimeout(() => {
+    document.getElementById('splash-screen').classList.add('hidden');
+    document.getElementById('location-screen').classList.add('show');
+    updateLocationScreenText();
+  }, 800);
+}
+
+function updateLocationScreenText() {
+  const isRTL = ['ar','ur'].includes(LANG);
+  if (isRTL) {
+    document.getElementById('location-screen').style.direction = 'rtl';
+    document.getElementById('locTitle').textContent = 'وين أنت الحين؟';
+    document.getElementById('locSub').textContent = 'بنخصص تجربتك — مطاعم ومعالم وخدمات قريبة منك.';
+    document.getElementById('locAllow').textContent = '📍 شارك موقعي';
+    document.getElementById('locSkip').textContent = 'اختر مدينة';
+  }
+}
+
+// ============================
+// LOCATION
+// ============================
+function requestLocation() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        COORDS = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+        // Rough city detection
+        if (COORDS.lat > 24 && COORDS.lat < 25.5 && COORDS.lng > 46 && COORDS.lng < 47.5) CITY = 'riyadh';
+        else if (COORDS.lat > 21 && COORDS.lat < 22 && COORDS.lng > 39 && COORDS.lng < 40) CITY = 'jeddah';
+        else if (COORDS.lat > 21 && COORDS.lat < 21.6 && COORDS.lng > 39.5 && COORDS.lng < 40.2) CITY = 'makkah';
+        else CITY = 'riyadh';
+        showToast(`📍 Located: ${CITY_NAMES[CITY]}`);
+        enterApp();
+      },
+      () => { showCityPicker(); }
+    );
+  } else {
+    showCityPicker();
+  }
+}
+
+function showCityPicker() {
+  document.getElementById('cityPicker').style.display = 'flex';
+}
+
+function confirmCity() {
+  const sel = document.getElementById('citySelect').value;
+  if (!sel) return;
+  CITY = sel;
+  enterApp();
+}
+
+function changeLang() {
+  // Cycle through languages for demo
+  const langs = ['en','ar','fr'];
+  const idx = langs.indexOf(LANG);
+  LANG = langs[(idx+1) % langs.length];
+  document.getElementById('langSwitch').textContent = LANG.toUpperCase();
+  applyTranslations();
+  showToast(`Language: ${LANG.toUpperCase()}`);
+}
+
+// ============================
+// ENTER MAIN APP
+// ============================
+function enterApp() {
+  document.getElementById('location-screen').classList.remove('show');
+  document.getElementById('topNav').classList.add('show');
+  document.getElementById('bottomTabs').classList.add('show');
+  document.getElementById('cityBadge').textContent = '📍 ' + CITY_NAMES[CITY];
+
+  const isRTL = ['ar','ur'].includes(LANG);
+  if (isRTL) {
+    document.body.style.direction = 'rtl';
+    document.body.style.textAlign = 'right';
+  }
+  document.getElementById('langSwitch').textContent = LANG.toUpperCase();
+
+  applyTranslations();
+  initChat();
+  initExplore();
+  initHotelServices();
+  initHotelMenu('breakfast');
+  initTrips();
+}
+
+function applyTranslations() {
+  document.getElementById('tabChat').textContent = t('chat');
+  document.getElementById('tabExplore').textContent = t('explore');
+  document.getElementById('tabHotel').textContent = t('myHotel');
+  document.getElementById('tabTrips').textContent = t('trips');
+  document.getElementById('svcTitle').textContent = t('hotelServices');
+  document.getElementById('menuTitle').textContent = t('roomService');
+  document.getElementById('chatStatus').textContent = t('online');
+  document.getElementById('exploreSearchInput').placeholder = t('searchPlaces');
+  document.getElementById('chatInput').placeholder = LANG === 'ar' ? 'اكتب رسالة...' : 'Type a message...';
+}
+
+// ============================
+// TAB SWITCHING
+// ============================
+function switchTab(tab) {
+  document.querySelectorAll('.app-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+tab).classList.add('active');
+  if(event && event.currentTarget) event.currentTarget.classList.add('active');
+  // Fix Leaflet map size when tab becomes visible
+  if(tab==='explore' && exploreMap) setTimeout(()=>exploreMap.invalidateSize(),200);
+}
+
+// ============================
+// CHAT ENGINE
+// ============================
+function initChat() {
+  addBotMessage(t('welcome'), t('welcomeChips'));
+}
+
+function addBotMessage(text, chips, html) {
+  const container = document.getElementById('chatMessages');
+
+  // Show typing first
+  const typingEl = document.createElement('div');
+  typingEl.className = 'msg-typing';
+  typingEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+  container.appendChild(typingEl);
+  container.scrollTop = container.scrollHeight;
+
+  setTimeout(() => {
+    typingEl.remove();
+    const msgEl = document.createElement('div');
+    msgEl.className = 'msg msg-bot';
+    msgEl.innerHTML = text.replace(/\n/g,'<br>') + '<div class="msg-time">'+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</div>';
+    container.appendChild(msgEl);
+
+    if (html) {
+      const htmlEl = document.createElement('div');
+      htmlEl.style.maxWidth = '90%';
+      htmlEl.innerHTML = html;
+      container.appendChild(htmlEl);
+    }
+
+    if (chips && chips.length) {
+      const qr = document.createElement('div');
+      qr.className = 'quick-replies';
+      chips.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = 'qr-chip';
+        btn.textContent = c;
+        btn.onclick = () => handleChipClick(c);
+        qr.appendChild(btn);
+      });
+      container.appendChild(qr);
+    }
+
+    container.scrollTop = container.scrollHeight;
+  }, 800 + Math.random()*600);
+}
+
+function addUserMessage(text) {
+  const container = document.getElementById('chatMessages');
+  const msgEl = document.createElement('div');
+  msgEl.className = 'msg msg-user';
+  msgEl.innerHTML = text + '<div class="msg-time">'+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</div>';
+  container.appendChild(msgEl);
+  container.scrollTop = container.scrollHeight;
+}
+
+function sendUserMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addUserMessage(text);
+  processUserInput(text);
+}
+
+function handleChipClick(chip) {
+  // Remove quick replies
+  document.querySelectorAll('.quick-replies').forEach(el => el.remove());
+  addUserMessage(chip);
+  processUserInput(chip);
+}
+
+function processUserInput(text) {
+  const lower = text.toLowerCase();
+
+  // Restaurant flow
+  if (lower.includes('restaurant') || lower.includes('مطعم') || lower.includes('أبحث عن مطعم') || lower.includes('find a restaurant') || lower.includes('trouver un restaurant')) {
+    conversationState = 'ask_cuisine';
+    addBotMessage(t('askCuisine'), t('cuisineChips'));
+    return;
+  }
+
+  if (conversationState === 'ask_cuisine') {
+    conversationState = 'ask_budget';
+    addBotMessage(t('askBudget'), t('budgetChips'));
+    return;
+  }
+
+  if (conversationState === 'ask_budget') {
+    conversationState = 'ask_atmosphere';
+    addBotMessage(t('askAtmosphere'), t('atmosphereChips'));
+    return;
+  }
+
+  if (conversationState === 'ask_atmosphere') {
+    conversationState = 'show_restaurants';
+    showRestaurantResults();
+    return;
+  }
+
+  if (lower.includes('compare') || lower.includes('قارن')) {
+    showComparisonTable();
+    return;
+  }
+
+  if (lower.includes('book #') || lower.includes('احجز #') || lower.includes('réserver #')) {
+    const num = text.match(/\d/);
+    const idx = num ? parseInt(num[0])-1 : 0;
+    const rests = getRestaurants(CITY);
+    const r = rests[Math.min(idx, rests.length-1)];
+    showBookingPayment(r.name, 0, 'restaurant');
+    return;
+  }
+
+  // Hotel services
+  if (lower.includes('hotel service') || lower.includes('خدمات الفندق') || lower.includes('services hôteliers')) {
+    addBotMessage(t('hotelServiceAsk'), t('hotelChips'));
+    return;
+  }
+  if (lower.includes('room service') || lower.includes('خدمة الغرف') || lower.includes('menu') || lower.includes('قائمة')) {
+    addBotMessage(t('menuShown'));
+    switchTab('hotel');
+    document.querySelectorAll('.tab-btn')[2].classList.add('active');
+    document.querySelectorAll('.tab-btn')[0].classList.remove('active');
+    return;
+  }
+  if (lower.includes('spa') || lower.includes('سبا') || lower.includes('massage') || lower.includes('مساج')) {
+    addBotMessage("Our spa offers: 💆\n\n🧖 Swedish Massage — 60 min — 350 SAR\n💆 Thai Massage — 90 min — 450 SAR\n🌿 Aromatherapy — 60 min — 380 SAR\n🪨 Hot Stone — 75 min — 420 SAR\n💅 Mani-Pedi — 45 min — 180 SAR\n\nAvailable slots today: 2:00 PM, 4:30 PM, 7:00 PM\n\nWould you like to book?",
+      ["Book Swedish 350 SAR","Book Thai 450 SAR","Book Aromatherapy 380 SAR","Show all spa services"]);
+    return;
+  }
+  if (lower.includes('laundry') || lower.includes('غسيل') || lower.includes('dry clean') || lower.includes('blanchisserie')) {
+    addBotMessage("Our laundry services: 👔\n\n👕 Shirt wash & iron — 25 SAR\n👔 Suit dry clean — 85 SAR\n👗 Dress dry clean — 75 SAR\n🧦 Express service (3hr) — +50%\n🧺 Bulk bag (5kg) — 120 SAR\n\nItems collected within 15 minutes.\n\nHow would you like to proceed?",
+      ["Pickup laundry now","Express service","Schedule for tomorrow"]);
+    return;
+  }
+  if (lower.includes('pool') || lower.includes('gym') || lower.includes('مسبح') || lower.includes('جيم')) {
+    addBotMessage("Pool & Fitness Center: 🏊\n\n🏊 Pool: 6:00 AM - 10:00 PM\n   • Ladies only: 10:00 AM - 2:00 PM\n   • Towels provided poolside\n   • Children under 12 must be supervised\n\n🏋️ Gym: 24 hours\n   • Personal trainer available (200 SAR/session)\n   • Fresh towels & water provided\n\n🧖 Sauna & Steam: 7:00 AM - 9:00 PM\n\nCurrent pool status: 🟢 Not crowded",
+      ["Book personal trainer","Reserve poolside cabana (150 SAR)","Get pool towels to my room"]);
+    return;
+  }
+  if (lower.includes('checkout') || lower.includes('مغادرة') || lower.includes('départ')) {
+    addBotMessage("Late checkout options: 🔑\n\n⏰ 2:00 PM — Complimentary (subject to availability)\n⏰ 4:00 PM — 200 SAR\n⏰ 6:00 PM — 350 SAR\n⏰ Full extra night — 50% room rate\n\nShall I request late checkout for you?",
+      ["Request 2 PM (free)","Book 4 PM (200 SAR)","Book 6 PM (350 SAR)"]);
+    return;
+  }
+  if (lower.includes('pillow') || lower.includes('towel') || lower.includes('وسائد') || lower.includes('مناشف') || lower.includes('housekeeping') || lower.includes('تنظيف')) {
+    addBotMessage("Housekeeping request: 🛏️\n\nWhat do you need sent to your room?\n\n🛏️ Extra pillows (soft/firm)\n🧴 Extra towels\n🧊 Ice bucket\n🍫 Minibar restock\n🌡️ Room temperature adjustment\n🔌 Extra charger/adapter\n💐 Fresh flowers\n\nI'll send it right up!",
+      ["2 extra pillows","Extra towels","Ice bucket","Adapter plug","All of the above"]);
+    return;
+  }
+
+  // Trip booking
+  if (lower.includes('trip') || lower.includes('رحلة') || lower.includes('excursion') || lower.includes('حجز رحلة')) {
+    addBotMessage(t('tripIntro').replace('{city}', CITY_NAMES[CITY]));
+    switchTab('trips');
+    document.querySelectorAll('.tab-btn')[3].classList.add('active');
+    document.querySelectorAll('.tab-btn')[0].classList.remove('active');
+    return;
+  }
+
+  // Car rental
+  if (lower.includes('car') || lower.includes('سيارة') || lower.includes('voiture') || lower.includes('rent')) {
+    addBotMessage(t('carRental'), t('carChips'));
+    return;
+  }
+  if (lower.includes('economy') || lower.includes('suv') || lower.includes('luxury') || lower.includes('driver') || lower.includes('اقتصادي') || lower.includes('دفع رباعي') || lower.includes('فاخر') || lower.includes('سائق')) {
+    const prices = {economy:120,suv:250,luxury:500,driver:350};
+    let type = 'economy';
+    if (lower.includes('suv') || lower.includes('دفع')) type='suv';
+    if (lower.includes('luxury') || lower.includes('فاخر')) type='luxury';
+    if (lower.includes('driver') || lower.includes('سائق')) type='driver';
+    addBotMessage(`Great choice! 🚗\n\nI found these options for ${CITY_NAMES[CITY]}:\n\n1️⃣ Hyundai Tucson — ${prices[type]} SAR/day — Lumi Rent\n2️⃣ Toyota Camry — ${prices[type]+30} SAR/day — Budget\n3️⃣ Kia Sportage — ${prices[type]-10} SAR/day — Yelo\n\nAll include insurance. Free delivery to hotel.\nHow many days do you need?`,
+      ["1 day","3 days","1 week","Compare these"]);
+    return;
+  }
+
+  // Nearby
+  if (lower.includes('nearby') || lower.includes('قريب') || lower.includes('proximité') || lower.includes("what's near")) {
+    addBotMessage(t('nearbyIntro'), t('nearbyChips'));
+    return;
+  }
+
+  // Airport
+  if (lower.includes('airport') || lower.includes('مطار') || lower.includes('aéroport') || lower.includes('transfer') || lower.includes('توصيل')) {
+    addBotMessage(t('airportIntro'), t('airportChips'));
+    return;
+  }
+  if (lower.includes('king khalid') || lower.includes('الملك خالد') || lower.includes('king abdulaziz') || lower.includes('الملك عبدالعزيز')) {
+    addBotMessage("Airport transfer confirmed! ✈️\n\nOptions:\n🚗 Sedan (1-3 passengers) — 120 SAR\n🚐 SUV (1-5 passengers) — 180 SAR\n🚌 Van (6-10 passengers) — 280 SAR\n\nPickup from hotel lobby. Driver will have a sign with your name.\nFree cancellation up to 2 hours before.\n\nWhich option?",
+      ["Book Sedan 120 SAR","Book SUV 180 SAR","Book Van 280 SAR"]);
+    return;
+  }
+
+  // Booking from chips
+  if (lower.includes('book') || lower.includes('احجز') || lower.includes('réserver')) {
+    const priceMatch = text.match(/(\d+)\s*SAR/i) || text.match(/(\d+)\s*ريال/);
+    if (priceMatch) {
+      showBookingPayment(text, parseInt(priceMatch[1]), 'service');
+      return;
+    }
+  }
+
+  // Payment flow triggers
+  if (lower.includes('1 day') || lower.includes('3 day') || lower.includes('1 week') || lower.includes('يوم')) {
+    let days = 1;
+    if (lower.includes('3')) days=3;
+    if (lower.includes('week') || lower.includes('أسبوع')) days=7;
+    showBookingPayment(`Car Rental — ${days} days`, 150*days, 'car');
+    return;
+  }
+
+  if (lower.includes('pickup laundry') || lower.includes('express service')) {
+    addBotMessage("Done! 🧺 A staff member will be at your room in 15 minutes to collect your laundry.\n\nYou'll receive a WhatsApp notification when it's ready.\n\nAnything else?", t('welcomeChips'));
+    return;
+  }
+
+  if (lower.includes('request 2 pm') || lower.includes('request 2pm')) {
+    addBotMessage("✅ Late checkout request submitted!\n\nYou'll receive confirmation within 30 minutes. Current availability looks good.\n\nAnything else I can help with?", t('welcomeChips'));
+    return;
+  }
+
+  if (lower.includes('all of the above') || lower.includes('extra pillows') || lower.includes('extra towels')) {
+    addBotMessage("✅ Request sent to housekeeping!\n\nEstimated delivery: 10-15 minutes.\nA staff member will knock and announce \"Housekeeping\".\n\nNeed anything else?", t('welcomeChips'));
+    return;
+  }
+
+  // Default — AI response
+  addBotMessage("I understand! Let me help you with that. 😊\n\nHere are the main things I can assist with:", t('welcomeChips'));
+}
+
+let chatMapCounter = 0;
+
+function showRestaurantResults() {
+  const rests = getRestaurants(CITY).slice(0,3);
+  addBotMessage(t('restaurantIntro'));
+
+  const container = document.getElementById('chatMessages');
+  setTimeout(() => {
+    // Leaflet map in chat
+    chatMapCounter++;
+    const mapId = 'chatMap_' + chatMapCounter;
+    const mapWrap = document.createElement('div');
+    mapWrap.setAttribute('style','max-width:90%;width:90%;height:220px;min-height:220px;border-radius:12px;overflow:visible;margin:6px 0;position:relative;z-index:1;');
+    mapWrap.innerHTML = `<div id="${mapId}" style="height:220px;width:100%;border-radius:12px;"></div>`;
+    container.appendChild(mapWrap);
+
+    // Init Leaflet map after DOM insert
+    setTimeout(() => {
+      const cc = CITY_COORDS[CITY] || CITY_COORDS.riyadh;
+      const chatMap = L.map(mapId,{zoomControl:true,attributionControl:false,scrollWheelZoom:false}).setView([cc.lat,cc.lng],12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(chatMap);
+      const bounds = [];
+      rests.forEach((r,i) => {
+        const name = LANG==='ar'?r.nameAr:r.name;
+        const m = L.marker([r.lat,r.lng]).addTo(chatMap);
+        m.bindPopup(`<b>${i+1}. ${name}</b><br><span class="popup-rating">${r.rating}</span><br><div class="popup-price">${r.price}</div>`);
+        // Open first popup
+        if(i===0) m.openPopup();
+        bounds.push([r.lat,r.lng]);
+      });
+      if(bounds.length>1) chatMap.fitBounds(bounds,{padding:[25,25]});
+      chatMap.invalidateSize();
+    }, 100);
+
+    // Cards
+    rests.forEach((r,i) => {
+      const cardHTML = `<div class="chat-card">
+        <div class="chat-card-img">${r.icon}</div>
+        <div class="chat-card-body">
+          <h4>${i+1}. ${LANG==='ar'?r.nameAr:r.name}</h4>
+          <div class="rating">${r.rating} · ${r.reviews} reviews</div>
+          <p>${r.desc}</p>
+          <div class="price">${r.price} per person</div>
+          <div style="font-size:0.72rem;color:var(--blue);margin-top:4px;">📍 ${r.dist} from you</div>
+        </div>
+        <div class="chat-card-actions">
+          <button onclick="handleChipClick('Book #${i+1}')">📅 Book</button>
+          <button onclick="handleChipClick('Compare them')">⚖️ Compare</button>
+          <button onclick="showBookingPayment('${r.name}',0,'restaurant')">💳 Pay</button>
+        </div>
+      </div>`;
+      const el = document.createElement('div');
+      el.style.maxWidth = '320px';
+      el.style.animation = 'msgIn 0.3s ease';
+      el.innerHTML = cardHTML;
+      container.appendChild(el);
+    });
+
+    addBotMessage(t('compareAsk'), t('compareChips'));
+    container.scrollTop = container.scrollHeight;
+  }, 1200);
+}
+
+function showComparisonTable() {
+  const rests = getRestaurants(CITY).slice(0,3);
+  let tableHTML = `<div style="overflow-x:auto;max-width:90%;"><table class="compare-table">
+    <tr><th></th>${rests.map((r,i)=>`<th>${LANG==='ar'?r.nameAr:r.name}</th>`).join('')}</tr>
+    <tr><td><strong>Cuisine</strong></td>${rests.map(r=>`<td>${r.cuisine}</td>`).join('')}</tr>
+    <tr><td><strong>Rating</strong></td>${rests.map(r=>`<td>${r.rating}</td>`).join('')}</tr>
+    <tr><td><strong>Price/Person</strong></td>${rests.map(r=>`<td>${r.price}</td>`).join('')}</tr>
+    <tr><td><strong>Distance</strong></td>${rests.map(r=>`<td>${r.dist}</td>`).join('')}</tr>
+    <tr><td><strong>Atmosphere</strong></td>${rests.map(r=>`<td>${r.atm}</td>`).join('')}</tr>
+    <tr><td><strong>Reviews</strong></td>${rests.map(r=>`<td>${r.reviews}</td>`).join('')}</tr>
+    <tr><td><strong>🏆 Best For</strong></td>
+      <td class="winner">Authentic</td><td class="winner">Views</td><td class="winner">Business</td></tr>
+  </table></div>`;
+
+  addBotMessage("Here's the comparison! ⚖️\n\nMy recommendation: <strong>#1 " + rests[0].name + "</strong> — best overall value and closest to you.", null, tableHTML);
+  setTimeout(() => {
+    addBotMessage("Ready to book? I can reserve a table and process payment right here. 💳", ["Book #1 now","Book #2 now","Book #3 now","Keep browsing"]);
+  }, 2000);
+}
+
+// ============================
+// PAYMENT SYSTEM
+// ============================
+function showBookingPayment(name, amount, type) {
+  if (!amount) amount = 150 + Math.floor(Math.random()*200);
+  document.getElementById('payAmount').textContent = 'SAR ' + amount;
+  document.getElementById('payItemsList').textContent = name;
+  document.getElementById('payConfirmDetail').textContent = name + ' · ' + CITY_NAMES[CITY];
+  document.getElementById('paymentForm').style.display = 'block';
+  document.getElementById('paySuccess').style.display = 'none';
+  document.getElementById('payBtn').disabled = true;
+  selectedPayMethod = null;
+  document.querySelectorAll('.pay-method').forEach(m => m.classList.remove('selected'));
+  document.getElementById('paymentModal').classList.add('show');
+}
+
+function selectPay(el, method) {
+  document.querySelectorAll('.pay-method').forEach(m => m.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedPayMethod = method;
+  document.getElementById('payBtn').disabled = false;
+}
+
+function processPayment() {
+  const btn = document.getElementById('payBtn');
+  btn.textContent = 'Processing...';
+  btn.disabled = true;
+  setTimeout(() => {
+    document.getElementById('paymentForm').style.display = 'none';
+    document.getElementById('paySuccess').style.display = 'block';
+    btn.textContent = 'Pay Now';
+    // Add confirmation to chat
+    addBotMessage("✅ Payment confirmed! Your booking is confirmed.\n\n📱 Confirmation sent to your WhatsApp.\n📧 Email receipt on its way.\n\nBooking reference: SC-2026-" + Math.floor(1000+Math.random()*9000) + "\n\nAnything else I can help with?", t('welcomeChips'));
+  }, 2000);
+}
+
+function openPayment() {
+  if (cart.length === 0) return;
+  const total = cart.reduce((s,i) => s+i.price, 0);
+  document.getElementById('payAmount').textContent = 'SAR ' + total;
+  document.getElementById('payItemsList').innerHTML = cart.map(i => `${i.name} — ${i.price} SAR`).join('<br>');
+  document.getElementById('payConfirmDetail').textContent = `Room Service · ${cart.length} items`;
+  document.getElementById('paymentForm').style.display = 'block';
+  document.getElementById('paySuccess').style.display = 'none';
+  document.getElementById('payBtn').disabled = true;
+  selectedPayMethod = null;
+  document.querySelectorAll('.pay-method').forEach(m => m.classList.remove('selected'));
+  document.getElementById('paymentModal').classList.add('show');
+}
+
+function closePayment() {
+  document.getElementById('paymentModal').classList.remove('show');
+  if (document.getElementById('paySuccess').style.display === 'block') {
+    cart = [];
+    updateCartBadge();
+  }
+}
+
+// ============================
+// EXPLORE PAGE
+// ============================
+function initExplore() {
+  const scroll = document.getElementById('categoryScroll');
+  scroll.innerHTML = '';
+  CATEGORIES.forEach((cat,i) => {
+    const pill = document.createElement('button');
+    pill.className = 'cat-pill' + (i===0?' active':'');
+    pill.innerHTML = `<span class="cat-icon">${cat.icon}</span><span>${LANG==='ar'?cat.nameAr:cat.name}</span>`;
+    pill.onclick = () => {
+      document.querySelectorAll('.cat-pill').forEach(p=>p.classList.remove('active'));
+      pill.classList.add('active');
+      renderExploreCategory(cat.id);
+    };
+    scroll.appendChild(pill);
+  });
+  renderExploreCategory('restaurants');
+}
+
+let exploreMap = null;
+let exploreMarkers = [];
+
+function renderExploreCategory(catId) {
+  const cat = CATEGORIES.find(c=>c.id===catId);
+  const cardsEl = document.getElementById('exploreCards');
+  const data = getRestaurants(CITY);
+  const cc = CITY_COORDS[CITY] || CITY_COORDS.riyadh;
+  cardsEl.innerHTML = '';
+
+  // Initialize or reset Leaflet map
+  if (!exploreMap) {
+    exploreMap = L.map('exploreMapLeaflet',{zoomControl:true,attributionControl:false}).setView([cc.lat,cc.lng],12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(exploreMap);
+    // Fix map rendering when tab becomes visible
+    setTimeout(()=>exploreMap.invalidateSize(),300);
+  } else {
+    exploreMap.setView([cc.lat,cc.lng],12);
+  }
+
+  // Clear old markers
+  exploreMarkers.forEach(m=>exploreMap.removeLayer(m));
+  exploreMarkers = [];
+
+  // Add markers with popups
+  const bounds = [];
+  data.forEach((r,i) => {
+    const name = LANG==='ar'?r.nameAr:r.name;
+    const marker = L.marker([r.lat,r.lng]).addTo(exploreMap);
+    marker.bindPopup(`<b>${i+1}. ${name}</b><br><span class="popup-rating">${r.rating} · ${r.reviews}</span><br>${r.desc}<div class="popup-price">${r.price}</div><a class="popup-book" onclick="showBookingPayment('${r.name}',0,'restaurant')">Book Now</a>`);
+    exploreMarkers.push(marker);
+    bounds.push([r.lat,r.lng]);
+  });
+  if(bounds.length>1) exploreMap.fitBounds(bounds,{padding:[30,30]});
+
+  // Render cards
+  data.forEach(r => {
+    const card = document.createElement('div');
+    card.className = 'explore-card';
+    card.innerHTML = `
+      <div class="explore-card-img">${r.icon}</div>
+      <div class="explore-card-info">
+        <h4>${LANG==='ar'?r.nameAr:r.name}</h4>
+        <div class="stars">${r.rating} · ${r.reviews} reviews</div>
+        <p>${r.desc}</p>
+        <div class="dist">📍 ${r.dist}</div>
+        <div class="eprice">${r.price}</div>
+        <div class="explore-card-actions">
+          <button class="btn-book" onclick="showBookingPayment('${r.name}',0,'restaurant')">Book</button>
+          <button class="btn-chat" onclick="switchTab('chat');handleChipClick('Find a restaurant')">💬 Ask AI</button>
+        </div>
+      </div>`;
+    cardsEl.appendChild(card);
+  });
+}
+
+function exploreSearch() {
+  const q = document.getElementById('exploreSearchInput').value.trim();
+  if (!q) return;
+  showToast('Searching: ' + q);
+  // In real app, would search API
+  renderExploreCategory('restaurants');
+}
+
+// ============================
+// HOTEL SERVICES
+// ============================
+function initHotelServices() {
+  const grid = document.getElementById('serviceGrid');
+  grid.innerHTML = '';
+  HOTEL_SERVICES.forEach(svc => {
+    const card = document.createElement('div');
+    card.className = 'service-card';
+    card.onclick = () => {
+      switchTab('chat');
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-btn')[0].classList.add('active');
+      handleChipClick(LANG==='ar'? svc.nameAr : svc.name);
+    };
+    card.innerHTML = `<div class="svc-icon">${svc.icon}</div><div class="svc-name">${LANG==='ar'?svc.nameAr:svc.name}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ============================
+// HOTEL MENU
+// ============================
+function initHotelMenu(category) {
+  const tabsEl = document.getElementById('menuTabs');
+  const itemsEl = document.getElementById('menuItems');
+
+  tabsEl.innerHTML = '';
+  const cats = Object.keys(HOTEL_MENU);
+  cats.forEach(cat => {
+    const tab = document.createElement('button');
+    tab.className = 'menu-tab' + (cat===category?' active':'');
+    tab.textContent = cat.charAt(0).toUpperCase()+cat.slice(1);
+    tab.onclick = () => initHotelMenu(cat);
+    tabsEl.appendChild(tab);
+  });
+
+  itemsEl.innerHTML = '';
+  HOTEL_MENU[category].forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'menu-item';
+    el.innerHTML = `
+      <div class="menu-item-img">${item.icon}</div>
+      <div class="menu-item-info">
+        <h4>${LANG==='ar'?item.nameAr:item.name}</h4>
+        <p>${item.desc}</p>
+        <div class="mprice">${item.price} SAR</div>
+      </div>
+      <button class="menu-item-add" onclick="addToCart('${item.name}',${item.price})">+</button>`;
+    itemsEl.appendChild(el);
+  });
+}
+
+function addToCart(name, price) {
+  cart.push({name, price});
+  updateCartBadge();
+  showToast(`Added: ${name} — ${price} SAR`);
+}
+
+function updateCartBadge() {
+  const badge = document.getElementById('cartBadge');
+  const float = document.getElementById('cartFloat');
+  badge.textContent = cart.length;
+  if (cart.length > 0) float.classList.add('show');
+  else float.classList.remove('show');
+}
+
+// ============================
+// TRIPS
+// ============================
+function initTrips() {
+  const list = document.getElementById('tripsList');
+  document.getElementById('tripsTitle').textContent = t('recTrips');
+  list.innerHTML = '';
+  getTrips(CITY).forEach(trip => {
+    const card = document.createElement('div');
+    card.className = 'trip-card';
+    card.innerHTML = `
+      <div class="trip-card-header">
+        <div class="trip-icon ${trip.color}">${trip.icon}</div>
+        <div class="trip-info">
+          <h4>${LANG==='ar'?trip.nameAr:trip.name}</h4>
+          <p>⏱️ ${trip.duration} · ${CITY_NAMES[CITY]}</p>
+          <div class="trip-price">${trip.price}</div>
+        </div>
+      </div>
+      <div style="padding:0 16px 12px;font-size:0.78rem;color:var(--text-light);">${trip.desc}</div>
+      <div class="trip-card-footer">
+        <button onclick="showBookingPayment('${trip.name}',${parseInt(trip.price)},'trip')">💳 Book & Pay</button>
+        <button onclick="switchTab('chat');handleChipClick('Tell me more about ${trip.name}')">💬 Ask AI</button>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+// ============================
+// TOAST
+// ============================
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ============================
+// INIT
+// ============================
+document.addEventListener('DOMContentLoaded', () => {
+  // Preload nothing — wait for user to select language
+});
+</script>
+</body>
+</html>
