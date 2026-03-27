@@ -1003,7 +1003,25 @@ function processUserInput(text) {
   function matchAny(keywords) { return keywords.some(k => lower.includes(k)); }
 
   // ========================
-  // CONVERSATION STATE FLOWS (must check first)
+  // DETECT NEW INTENT — break out of conversation state if user clearly changed topic
+  // ========================
+  const newIntentKeywords = ['hotel','فندق','hôtel','restaurant','مطعم','spa','سبا','massage','laundry','غسيل',
+    'pool','gym','مسبح','trip','رحلة','car','سيارة','airport','مطار','coffee','قهوة',
+    'shopping','تسوق','weather','طقس','wifi','help','مساعدة','emergency','طوارئ',
+    'mosque','مسجد','hello','مرحبا','bonjour','hungry','جوعان','pillow','towel',
+    'valet','parking','babysit','kids','أطفال','checkout','مغادرة','nearby','قريب',
+    'room service','خدمة الغرف','housekeeping','تنظيف','directions','اتجاهات',
+    'currency','عملة','translate','ترجم','taxi','تاكسي','uber','كريم',
+    'check in','تسجيل','breakfast','فطور','dinner','عشاء','lunch','غداء',
+    'night life','حياة ليلية','beach','شاطئ','desert','صحراء','museum','متحف'];
+  if (conversationState && conversationState.startsWith('ask_') || conversationState === 'hotel_') {
+    if (matchAny(newIntentKeywords)) {
+      conversationState = null; // Reset — user changed topic
+    }
+  }
+
+  // ========================
+  // CONVERSATION STATE FLOWS — restaurant qualifying
   // ========================
   if (conversationState === 'ask_cuisine') {
     conversationState = 'ask_budget';
@@ -1016,8 +1034,41 @@ function processUserInput(text) {
     return;
   }
   if (conversationState === 'ask_atmosphere') {
-    conversationState = 'show_restaurants';
+    conversationState = null;
     showRestaurantResults();
+    return;
+  }
+
+  // HOTEL BOOKING qualifying flow
+  if (conversationState === 'hotel_stars') {
+    conversationState = 'hotel_budget';
+    addBotMessage("And what's your nightly budget? 💰",
+      ["Under 500 SAR","500-1000 SAR","1000-2000 SAR","2000+ SAR (Luxury)","No budget limit"]);
+    return;
+  }
+  if (conversationState === 'hotel_budget') {
+    conversationState = 'hotel_amenities';
+    addBotMessage("Any must-have amenities? 🏨",
+      ["Pool & Spa","Free breakfast","City view","Family rooms","Business center","No preference"]);
+    return;
+  }
+  if (conversationState === 'hotel_amenities') {
+    conversationState = null;
+    showHotelResults();
+    return;
+  }
+
+  // ========================
+  // HOTEL SEARCH / BOOKING (NEW)
+  // ========================
+  if (matchAny(['find a hotel','book a hotel','hotel','فندق','need a hotel','i need a hotel',
+    'where to stay','accommodation','stay','place to stay','lodging','أبحث عن فندق',
+    'حجز فندق','أريد فندق','إقامة','مكان للإقامة','سكن',
+    'hôtel','hébergement','où dormir','chercher un hôtel','réserver un hôtel',
+    'check in','check-in','تسجيل دخول'])) {
+    conversationState = 'hotel_stars';
+    addBotMessage("I'd love to help you find the perfect hotel in " + CITY_NAMES[CITY] + "! 🏨\n\nWhat star rating are you looking for?",
+      ["3-star (Comfort)","4-star (Premium)","5-star (Luxury)","Any rating"]);
     return;
   }
 
@@ -1027,15 +1078,20 @@ function processUserInput(text) {
   if (matchAny(['restaurant','مطعم','أبحث عن مطعم','find a restaurant','trouver un restaurant',
     'hungry','eat','food','dinner','lunch','breakfast','cuisine','dining',
     'i want to eat','where can i eat','suggest a place','good place to eat','where to eat',
-    'أكل','جوعان','عشاء','غداء','فطور','وجبة','أين آكل',
-    'manger','faim','dîner','déjeuner','petit-déjeuner','où manger'])) {
+    'i am hungry','im hungry',"i'm hungry",'starving','looking for food','recommend food',
+    'local food','traditional food','best restaurant','nice restaurant','fine dining',
+    'أكل','جوعان','عشاء','غداء','فطور','وجبة','أين آكل','أبغى آكل','جعان','محتاج أكل',
+    'مطعم حلو','أفضل مطعم','مطعم قريب',
+    'manger','faim','dîner','déjeuner','petit-déjeuner','où manger','bon restaurant',
+    'bonne table','avoir faim'])) {
     conversationState = 'ask_cuisine';
     addBotMessage(t('askCuisine'), t('cuisineChips'));
     return;
   }
 
   // Compare restaurants
-  if (matchAny(['compare','قارن','مقارنة','comparer','side by side','which is better','أيهم أفضل'])) {
+  if (matchAny(['compare','قارن','مقارنة','comparer','side by side','which is better','أيهم أفضل',
+    'differences','الفرق','what is the difference'])) {
     showComparisonTable();
     return;
   }
@@ -1054,7 +1110,8 @@ function processUserInput(text) {
   // HOTEL SERVICES (general)
   // ========================
   if (matchAny(['hotel service','خدمات الفندق','services hôteliers','what services','room amenities',
-    'ما الخدمات','خدمات الغرفة','what can the hotel','hotel amenities','in-room service'])) {
+    'ما الخدمات','خدمات الغرفة','what can the hotel','hotel amenities','in-room service',
+    'what does the hotel offer','hotel facilities','مرافق الفندق'])) {
     addBotMessage(t('hotelServiceAsk'), t('hotelChips'));
     return;
   }
@@ -1062,7 +1119,8 @@ function processUserInput(text) {
   // ROOM SERVICE / MENU / ORDER FOOD
   if (matchAny(['room service','خدمة الغرف','service en chambre','order food','order to room',
     'أريد طعام','food to my room','menu','قائمة الطعام','قائمة','in-room dining',
-    'اطلب أكل','room menu','bring food','deliver food'])) {
+    'اطلب أكل','room menu','bring food','deliver food','order breakfast','order dinner',
+    'room delivery','send food'])) {
     addBotMessage(t('menuShown'));
     switchTab('hotel');
     return;
@@ -1071,8 +1129,9 @@ function processUserInput(text) {
   // SPA / MASSAGE / WELLNESS / RELAX
   if (matchAny(['spa','سبا','massage','مساج','wellness','relax','relaxation','tired','stressed',
     'body treatment','facial','sauna','steam','hammam','تدليك','استرخاء','تعبان','عافية',
-    'spa & wellness','سبا وعافية',
-    'détente','bien-être','massothérapie','je suis fatigué'])) {
+    'spa & wellness','سبا وعافية','need to relax','back pain','pain','stress',
+    'pamper','pampering','beauty','جمال','عناية',
+    'détente','bien-être','massothérapie','je suis fatigué','besoin de repos'])) {
     addBotMessage("Our spa offers: 💆\n\n🧖 Swedish Massage — 60 min — 350 SAR\n💆 Thai Massage — 90 min — 450 SAR\n🌿 Aromatherapy — 60 min — 380 SAR\n🪨 Hot Stone — 75 min — 420 SAR\n💅 Mani-Pedi — 45 min — 180 SAR\n\nAvailable slots today: 2:00 PM, 4:30 PM, 7:00 PM\n\nWould you like to book?",
       ["Book Swedish 350 SAR","Book Thai 450 SAR","Book Aromatherapy 380 SAR","Show all spa services"]);
     return;
@@ -1081,6 +1140,7 @@ function processUserInput(text) {
   // LAUNDRY / DRY CLEAN / CLOTHES
   if (matchAny(['laundry','غسيل','غسيل ملابس','dry clean','blanchisserie','iron','ironing','كوي',
     'wash my clothes','clean my clothes','dirty clothes','press my suit','نظف ملابسي',
+    'wrinkled','stain','stained','بقعة',
     'laver','pressing','nettoyage'])) {
     addBotMessage("Our laundry services: 👔\n\n👕 Shirt wash & iron — 25 SAR\n👔 Suit dry clean — 85 SAR\n👗 Dress dry clean — 75 SAR\n🧦 Express service (3hr) — +50%\n🧺 Bulk bag (5kg) — 120 SAR\n\nItems collected within 15 minutes.\n\nHow would you like to proceed?",
       ["Pickup laundry now","Express service","Schedule for tomorrow"]);
@@ -1089,7 +1149,7 @@ function processUserInput(text) {
 
   // POOL / GYM / FITNESS / SWIM
   if (matchAny(['pool','gym','مسبح','جيم','swim','swimming','fitness','workout','exercise','sport',
-    'pool & gym','مسبح وجيم','سباحة','رياضة','تمرين',
+    'pool & gym','مسبح وجيم','سباحة','رياضة','تمرين','run','running','yoga','يوغا',
     'piscine','gymnase','natation','entraînement'])) {
     addBotMessage("Pool & Fitness Center: 🏊\n\n🏊 Pool: 6:00 AM - 10:00 PM\n   • Ladies only: 10:00 AM - 2:00 PM\n   • Towels provided poolside\n   • Children under 12 must be supervised\n\n🏋️ Gym: 24 hours\n   • Personal trainer available (200 SAR/session)\n   • Fresh towels & water provided\n\n🧖 Sauna & Steam: 7:00 AM - 9:00 PM\n\nCurrent pool status: 🟢 Not crowded",
       ["Book personal trainer","Reserve poolside cabana (150 SAR)","Get pool towels to my room"]);
@@ -1098,7 +1158,8 @@ function processUserInput(text) {
 
   // LATE CHECKOUT
   if (matchAny(['checkout','late checkout','مغادرة','تأخير المغادرة','départ','check-out','extend stay',
-    'stay longer','leave later','أريد أبقى','تمديد الإقامة'])) {
+    'stay longer','leave later','أريد أبقى','تمديد الإقامة','check out time','when is checkout',
+    'متى المغادرة'])) {
     addBotMessage("Late checkout options: 🔑\n\n⏰ 2:00 PM — Complimentary (subject to availability)\n⏰ 4:00 PM — 200 SAR\n⏰ 6:00 PM — 350 SAR\n⏰ Full extra night — 50% room rate\n\nShall I request late checkout for you?",
       ["Request 2 PM (free)","Book 4 PM (200 SAR)","Book 6 PM (350 SAR)"]);
     return;
@@ -1108,15 +1169,17 @@ function processUserInput(text) {
   if (matchAny(['pillow','towel','وسائد','مناشف','housekeeping','تنظيف','تنظيف الغرفة','clean my room',
     'minibar','ice bucket','charger','adapter','extra blanket','fresh sheets',
     'need supplies','room supplies','amenities','شامبو','صابون',
+    'broken','not working','fix','repair','maintenance','عطل','خربان','صيانة',
+    'air conditioning','مكيف','ac not working','light','إضاءة',
     'ménage','serviette','oreiller'])) {
-    addBotMessage("Housekeeping request: 🛏️\n\nWhat do you need sent to your room?\n\n🛏️ Extra pillows (soft/firm)\n🧴 Extra towels\n🧊 Ice bucket\n🍫 Minibar restock\n🌡️ Room temperature adjustment\n🔌 Extra charger/adapter\n💐 Fresh flowers\n\nI'll send it right up!",
-      ["2 extra pillows","Extra towels","Ice bucket","Adapter plug","All of the above"]);
+    addBotMessage("Housekeeping request: 🛏️\n\nWhat do you need sent to your room?\n\n🛏️ Extra pillows (soft/firm)\n🧴 Extra towels\n🧊 Ice bucket\n🍫 Minibar restock\n🌡️ Room temperature adjustment\n🔌 Extra charger/adapter\n💐 Fresh flowers\n🔧 Maintenance request\n\nI'll send it right up!",
+      ["2 extra pillows","Extra towels","Ice bucket","Adapter plug","Maintenance needed","All of the above"]);
     return;
   }
 
   // VALET PARKING
   if (matchAny(['valet','parking','صف السيارات','خدمة صف','park my car','where to park',
-    'أين أركن','موقف','voiturier','stationnement'])) {
+    'أين أركن','موقف','voiturier','stationnement','get my car','bring my car','أريد سيارتي'])) {
     addBotMessage("Valet Parking: 🚗\n\n🅿️ Valet service available 24/7 at main entrance\n💰 Complimentary for hotel guests\n⏱️ Retrieval time: ~5 minutes\n🔑 Simply hand your keys to the attendant\n\nNeed your car now?",
       ["Bring my car now","Schedule car for tomorrow morning","Where is self-parking?"]);
     return;
@@ -1124,7 +1187,8 @@ function processUserInput(text) {
 
   // BABYSITTING / KIDS
   if (matchAny(['babysit','babysitting','رعاية أطفال','kids','children','child care','childcare',
-    'nanny','أطفال','طفل','garde d\'enfants','enfants'])) {
+    'nanny','أطفال','طفل','garde d\'enfants','enfants','playground','ملعب',
+    'family activity','نشاط عائلي','kids club'])) {
     addBotMessage("Babysitting Service: 👶\n\n👩‍👧 Certified babysitter — 80 SAR/hour\n🎮 Kids Club (ages 4-12) — 9:00 AM - 8:00 PM — Free!\n🍼 Baby supplies (crib, formula, diapers) available\n👨‍👧‍👦 Maximum 3 children per sitter\n\nAll sitters are CPR-certified and hotel-vetted.\n\nHow can I help?",
       ["Book babysitter now","Kids Club info","Request baby crib"]);
     return;
@@ -1135,8 +1199,9 @@ function processUserInput(text) {
   // ========================
   if (matchAny(['trip','رحلة','excursion','حجز رحلة','tour','sightseeing','adventure','explore the city',
     'what to do','things to do','activities','attractions','places to visit',
-    'ماذا أفعل','أماكن سياحية','سياحة','زيارة',
-    'tourisme','visite','que faire','activités'])) {
+    'ماذا أفعل','أماكن سياحية','سياحة','زيارة','must see','must visit','top attractions',
+    'heritage','تراث','historical','تاريخي','culture','ثقافة',
+    'tourisme','visite','que faire','activités','à voir'])) {
     addBotMessage(t('tripIntro').replace('{city}', CITY_NAMES[CITY]));
     switchTab('trips');
     return;
@@ -1145,8 +1210,8 @@ function processUserInput(text) {
   // ========================
   // CAR RENTAL / TRANSPORTATION
   // ========================
-  if (matchAny(['car','سيارة','voiture','rent','rental','drive','تأجير','استئجار',
-    'i need a car','rent a car','how to get around','transportation',
+  if (matchAny(['car','سيارة','voiture','rent a car','rental','drive','تأجير','استئجار',
+    'i need a car','how to get around','transportation','مواصلات',
     'louer','location de voiture'])) {
     addBotMessage(t('carRental'), t('carChips'));
     return;
@@ -1163,10 +1228,22 @@ function processUserInput(text) {
   }
 
   // ========================
+  // TAXI / RIDE / UBER / CAREEM
+  // ========================
+  if (matchAny(['taxi','تاكسي','uber','careem','كريم','ride','أوبر',
+    'call a taxi','get a ride','need a ride','book a ride',
+    'أحتاج توصيلة','أبغى تاكسي'])) {
+    addBotMessage("Ride Services in " + CITY_NAMES[CITY] + ": 🚕\n\n📱 Available apps:\n🟢 Careem — Most popular in Saudi Arabia\n⚫ Uber — Available nationwide\n🚖 Hotel taxi — Fixed rate, at lobby\n\n💡 Tip: Careem is the most widely used in Saudi Arabia.\n\nEstimated fare from your hotel:\n🏢 City Center — ~25-40 SAR\n🛒 Nearest Mall — ~15-25 SAR\n✈️ Airport — ~80-120 SAR\n\nWould you like directions instead?",
+      ["Order hotel taxi","Show directions on map","Airport transfer","Rent a car instead"]);
+    return;
+  }
+
+  // ========================
   // NEARBY / EXPLORE
   // ========================
   if (matchAny(['nearby','قريب','proximité',"what's near",'around me','around here','close to me',
-    'ما حولي','بالقرب','aux alentours','près de moi'])) {
+    'ما حولي','بالقرب','aux alentours','près de moi','explore','map','خريطة',
+    'show me around','what is around'])) {
     addBotMessage(t('nearbyIntro'), t('nearbyChips'));
     return;
   }
@@ -1175,7 +1252,8 @@ function processUserInput(text) {
   // AIRPORT / TRANSFER
   // ========================
   if (matchAny(['airport','مطار','aéroport','transfer','توصيل','flight','طيران','fly',
-    'pick me up','drop off','how to get to airport','take me to airport'])) {
+    'pick me up','drop off','how to get to airport','take me to airport',
+    'أوصلني للمطار','متى الرحلة'])) {
     addBotMessage(t('airportIntro'), t('airportChips'));
     return;
   }
@@ -1215,7 +1293,7 @@ function processUserInput(text) {
     return;
   }
 
-  if (matchAny(['all of the above','extra pillows','extra towels'])) {
+  if (matchAny(['all of the above','extra pillows','extra towels','maintenance needed'])) {
     addBotMessage("✅ Request sent to housekeeping!\n\nEstimated delivery: 10-15 minutes.\nA staff member will knock and announce \"Housekeeping\".\n\nNeed anything else?", t('welcomeChips'));
     return;
   }
@@ -1223,7 +1301,8 @@ function processUserInput(text) {
   // ========================
   // COFFEE / CAFE
   // ========================
-  if (matchAny(['coffee','cafe','café','قهوة','كافيه','مقهى','cappuccino','latte','espresso'])) {
+  if (matchAny(['coffee','cafe','café','قهوة','كافيه','مقهى','cappuccino','latte','espresso',
+    'tea','شاي','hot drink','مشروب ساخن','thé'])) {
     addBotMessage("Great taste! ☕ Let me find the best cafés near you.\n\nPopular spots in " + CITY_NAMES[CITY] + ":\n\n1️⃣ Barn's Coffee — Specialty coffee, cozy\n2️⃣ Dose Café — Modern, great pastries\n3️⃣ Elixir Bunn — Local favorite, Arabic coffee\n\nWant me to show them on the map?",
       ["Show on map","Find a restaurant instead","Hotel room service coffee"]);
     return;
@@ -1233,7 +1312,8 @@ function processUserInput(text) {
   // SHOPPING
   // ========================
   if (matchAny(['shopping','shop','mall','تسوق','مول','متجر','souk','souq','سوق',
-    'buy','where to shop','magasin','centre commercial','acheter'])) {
+    'buy','where to shop','magasin','centre commercial','acheter','market','supermarket',
+    'gift','gifts','هدايا','هدية','souvenir','تذكار'])) {
     addBotMessage("Shopping in " + CITY_NAMES[CITY] + "! 🛍️\n\n🏬 Top malls:\n1️⃣ Riyadh Park — luxury brands\n2️⃣ Kingdom Centre — iconic tower mall\n3️⃣ Panorama Mall — family friendly\n\n🕌 Traditional:\n4️⃣ Souq Al Zal — antiques & perfumes\n5️⃣ Al Dirah Souq — traditional goods\n\nWould you like directions?",
       ["Show on map","Take me to Kingdom Centre","Find nearby shops"]);
     return;
@@ -1242,7 +1322,8 @@ function processUserInput(text) {
   // ========================
   // WEATHER / TEMPERATURE
   // ========================
-  if (matchAny(['weather','temperature','حرارة','طقس','hot','cold','rain','météo','temps'])) {
+  if (matchAny(['weather','temperature','حرارة','طقس','hot','cold','rain','météo',
+    'sunny','cloudy','what to wear','ماذا ألبس','will it rain'])) {
     addBotMessage("Weather in " + CITY_NAMES[CITY] + " today: ☀️\n\n🌡️ 32°C (90°F) — Sunny\n💧 Humidity: 15%\n🌬️ Wind: 12 km/h\n☀️ UV Index: High\n\n💡 Tip: Stay hydrated and use sunscreen! Best time for outdoor activities is before 10 AM or after 4 PM.\n\nAnything else?",
       ["Find indoor activities","Book a trip","Hotel pool hours"]);
     return;
@@ -1251,9 +1332,65 @@ function processUserInput(text) {
   // ========================
   // WIFI / INTERNET
   // ========================
-  if (matchAny(['wifi','wi-fi','internet','واي فاي','انترنت','connection','الاتصال'])) {
+  if (matchAny(['wifi','wi-fi','internet','واي فاي','انترنت','connection','الاتصال',
+    'sim card','شريحة','data','بيانات','phone','هاتف'])) {
     addBotMessage("WiFi Information: 📶\n\n🏨 Hotel WiFi: Complimentary\n📱 Network: Hotel_Guest_5G\n🔑 Password: Available at reception\n⚡ Speed: 100 Mbps\n\n📞 Need a local SIM card?\n🟢 STC Tourist SIM — 99 SAR (30 days, 20GB)\n🔵 Mobily Tourist — 89 SAR (30 days, 15GB)\n🟣 Zain Tourist — 79 SAR (30 days, 10GB)\n\nAvailable at the airport or any telecom shop.",
       ["Where to buy SIM card","Hotel business center","Show telecom shops on map"]);
+    return;
+  }
+
+  // ========================
+  // CURRENCY / MONEY / ATM / EXCHANGE
+  // ========================
+  if (matchAny(['currency','money','exchange','atm','صراف','عملة','تحويل','صرف',
+    'sar','rial','riyal','ريال','how much','كم','dollar','يورو','euro',
+    'devise','argent','taux de change'])) {
+    addBotMessage("Currency & Money: 💱\n\n💵 Currency: Saudi Riyal (SAR)\n📊 Rates (approx):\n   1 USD = 3.75 SAR\n   1 EUR = 4.10 SAR\n   1 GBP = 4.75 SAR\n\n🏧 ATMs: Available in hotel lobby & nearby\n💳 Cards: Visa, Mastercard, Mada widely accepted\n📍 Exchange offices: Available in malls & airports\n\n💡 Tip: Most places accept card payment. Cash useful for souqs & small shops.",
+      ["Find nearest ATM","Find exchange office","Hotel concierge desk"]);
+    return;
+  }
+
+  // ========================
+  // DIRECTIONS / NAVIGATION / HOW TO GET
+  // ========================
+  if (matchAny(['direction','directions','how to get','how do i get','navigate','اتجاهات',
+    'كيف أوصل','كيف أروح','take me to','أوصلني','الطريق',
+    'comment aller','itinéraire'])) {
+    addBotMessage("I can help with directions! 🧭\n\nWhere would you like to go?\n\nPopular destinations in " + CITY_NAMES[CITY] + ":\n📍 City Center\n🛒 Nearest Mall\n✈️ Airport\n🕌 Grand Mosque\n🏖️ Popular attractions\n\nOr tell me the place name and I'll show it on the map!",
+      ["Show on map","Find nearby places","Airport transfer","Rent a car"]);
+    return;
+  }
+
+  // ========================
+  // NIGHTLIFE / ENTERTAINMENT
+  // ========================
+  if (matchAny(['nightlife','night life','حياة ليلية','entertainment','ترفيه','fun','مرح',
+    'what to do at night','evening','tonight','الليلة','هذا المساء','ce soir',
+    'show','concert','عرض','حفلة','event','فعالية','season','موسم'])) {
+    addBotMessage("Entertainment in " + CITY_NAMES[CITY] + " tonight! 🌙\n\n🎭 Riyadh Season events — Check latest schedule\n🎬 Cinema: VOX, AMC in major malls\n🍽️ Al Bujairi Terrace — dining with Diriyah views\n☕ Late-night cafés open until 2 AM\n🎳 Bowling, go-karts, escape rooms in malls\n🌃 Sky Bridge at Kingdom Centre — city views\n\nWant details on any of these?",
+      ["Riyadh Season events","Find restaurants open now","Book a trip","Show on map"]);
+    return;
+  }
+
+  // ========================
+  // BEACH / DESERT / NATURE
+  // ========================
+  if (matchAny(['beach','شاطئ','sea','بحر','desert','صحراء','sand','رمال','dune','كثبان',
+    'nature','طبيعة','camping','تخييم','hiking','مشي','mountain','جبل',
+    'plage','mer','désert','montagne','randonnée'])) {
+    addBotMessage("Outdoor Adventures near " + CITY_NAMES[CITY] + "! 🏜️\n\n🏜️ Desert experiences:\n• Red Sand Dunes — dune bashing, camel rides\n• Edge of the World — breathtaking cliff views\n• Camping under the stars\n\n🏔️ Nature:\n• Wadi Hanifah — green valley park\n• Tuwaiq Mountains — hiking trails\n\n🏖️ Beach (nearest from Riyadh):\n• Half Moon Bay — ~4hr drive\n• Jeddah Corniche — if visiting Jeddah\n\nWant me to book a trip?",
+      ["Book desert trip","Edge of the World tour","Show trips tab","Rent a car"]);
+    return;
+  }
+
+  // ========================
+  // MUSEUM / CULTURE / HISTORY
+  // ========================
+  if (matchAny(['museum','متحف','history','تاريخ','culture','ثقافة','heritage','تراث',
+    'art','فن','gallery','معرض','old town','البلد القديم','traditional',
+    'musée','histoire','patrimoine'])) {
+    addBotMessage("Culture & Heritage in " + CITY_NAMES[CITY] + "! 🏛️\n\n🏛️ Museums:\n1️⃣ National Museum — Saudi history & heritage\n2️⃣ Masmak Fortress — iconic landmark\n3️⃣ Murabba Palace — King Abdulaziz history\n\n🕌 Heritage sites:\n4️⃣ Diriyah — UNESCO World Heritage Site\n5️⃣ Al Bujairi Quarter — traditional dining & culture\n\n🎨 Art:\n6️⃣ Hayy Jameel — contemporary art center\n\nAll are within 30 min of the city center.",
+      ["Show on map","Book Diriyah trip","Find more attractions","How to get there"]);
     return;
   }
 
@@ -1261,8 +1398,8 @@ function processUserInput(text) {
   // GREETINGS / HELLO
   // ========================
   if (matchAny(['hello','hi','hey','good morning','good evening','good afternoon',
-    'مرحبا','أهلا','السلام عليكم','صباح الخير','مساء الخير',
-    'bonjour','bonsoir','salut','coucou'])) {
+    'مرحبا','أهلا','السلام عليكم','صباح الخير','مساء الخير','هلا','كيف حالك',
+    'bonjour','bonsoir','salut','coucou','ça va'])) {
     const greetings = {
       en: "Hello! Welcome to Saudia Concierge! 🕌✨\n\nI'm your personal AI assistant. I can help you with restaurants, hotels, trips, transportation, and much more.\n\nWhat would you like to do?",
       ar: "أهلاً وسهلاً! مرحباً بك في مساعد سعودية السياحي! 🕌✨\n\nأنا مساعدك الذكي. يمكنني مساعدتك في المطاعم والفنادق والرحلات والمواصلات وأكثر.\n\nكيف أقدر أساعدك؟",
@@ -1275,7 +1412,7 @@ function processUserInput(text) {
   // ========================
   // THANKS
   // ========================
-  if (matchAny(['thank','thanks','شكرا','شكراً','merci','appreciate','gracias','danke'])) {
+  if (matchAny(['thank','thanks','شكرا','شكراً','merci','appreciate','gracias','danke','ممتاز','great','good','nice'])) {
     const thanks = {
       en: "You're welcome! 😊 Happy to help anytime. Is there anything else you need?",
       ar: "العفو! 😊 سعيد بمساعدتك في أي وقت. هل تحتاج شيء ثاني؟",
@@ -1286,20 +1423,39 @@ function processUserInput(text) {
   }
 
   // ========================
+  // YES / CONFIRM
+  // ========================
+  if (matchAny(['yes','yeah','yep','sure','ok','okay','نعم','أيوه','طيب','إيه','أكيد',
+    'oui','d\'accord','bien sûr'])) {
+    addBotMessage("Great! What would you like to do? 😊", t('welcomeChips'));
+    return;
+  }
+
+  // ========================
+  // NO / CANCEL
+  // ========================
+  if (matchAny(['no','nope','not now','cancel','never mind','لا','مو','إلغاء','خلاص',
+    'non','annuler','pas maintenant'])) {
+    addBotMessage("No problem! 😊 I'm here whenever you need me. Just type or tap to get started.", t('welcomeChips'));
+    return;
+  }
+
+  // ========================
   // HELP / WHAT CAN YOU DO
   // ========================
   if (matchAny(['help','what can you','ساعدني','مساعدة','aide','aidez',
-    'what do you do','how does this work','كيف','options','خيارات'])) {
-    addBotMessage("I'm your AI concierge! Here's what I can do: 🌟\n\n🍽️ **Restaurants** — Find, compare & book\n🏨 **Hotel Services** — Room service, spa, laundry, pool, housekeeping\n🚗 **Car Rental** — Economy to luxury\n✈️ **Airport Transfer** — All major airports\n🗺️ **Trips & Tours** — Day trips & excursions\n🛍️ **Shopping** — Malls & traditional souqs\n☀️ **Weather** — Current conditions & tips\n📶 **WiFi & SIM** — Connectivity info\n👶 **Babysitting** — Certified childcare\n🅿️ **Valet** — Parking service\n\nJust type what you need in your own words!", t('welcomeChips'));
+    'what do you do','how does this work','كيف','options','خيارات',
+    'what are my options','show me options','menu please'])) {
+    addBotMessage("I'm your AI concierge! Here's what I can do: 🌟\n\n🏨 Find & book hotels\n🍽️ Restaurants — Find, compare & book\n🛎️ Hotel services — Room service, spa, laundry, pool\n🚗 Car rental & taxi/Careem\n✈️ Airport transfers\n🗺️ Trips, tours & excursions\n🛍️ Shopping — Malls & traditional souqs\n🏛️ Museums, culture & heritage\n🏜️ Desert & beach adventures\n☀️ Weather & what to wear\n📶 WiFi & SIM cards\n💱 Currency & ATMs\n🚨 Emergency contacts\n🕌 Prayer times & mosques\n👶 Babysitting & kids activities\n\nJust type what you need in your own words!", t('welcomeChips'));
     return;
   }
 
   // ========================
   // EMERGENCY / MEDICAL / SAFETY
   // ========================
-  if (matchAny(['emergency','hospital','doctor','pharmacy','police','ambulance',
-    'طوارئ','مستشفى','دكتور','صيدلية','شرطة','إسعاف',
-    'urgence','hôpital','médecin','pharmacie'])) {
+  if (matchAny(['emergency','hospital','doctor','pharmacy','police','ambulance','sick','ill',
+    'طوارئ','مستشفى','دكتور','صيدلية','شرطة','إسعاف','مريض',
+    'urgence','hôpital','médecin','pharmacie','malade'])) {
     addBotMessage("Emergency contacts in Saudi Arabia: 🚨\n\n🚑 Ambulance: 997\n👮 Police: 999\n🚒 Fire: 998\n🏥 Nearest hospital: Will check your location\n💊 24h Pharmacy: Nahdi & Al Dawaa (everywhere)\n\n📞 Hotel medical assistance available 24/7 — call reception.\n\nDo you need immediate help?",
       ["Find nearest hospital","Find nearest pharmacy","Call hotel reception","I'm okay, just asking"]);
     return;
@@ -1309,16 +1465,54 @@ function processUserInput(text) {
   // PRAYER / MOSQUE
   // ========================
   if (matchAny(['prayer','mosque','pray','مسجد','صلاة','أين أصلي','masjid','qibla','قبلة',
-    'mosquée','prière'])) {
+    'mosquée','prière','athan','أذان','wudu','وضوء'])) {
     addBotMessage("Prayer Information: 🕌\n\n🧭 Qibla direction: Available in your hotel room\n🕐 Next prayer time: Check hotel TV channel 1\n🕌 Nearest mosque: ~200m from hotel\n🙏 Prayer mat & Quran: Available at reception\n\nThe hotel has a prayer room on the ground floor, open 24/7.\n\nWould you like directions to the nearest mosque?",
       ["Show nearest mosque on map","Prayer times today","Find Grand Mosque"]);
     return;
   }
 
   // ========================
+  // LANGUAGE / TRANSLATE
+  // ========================
+  if (matchAny(['translate','ترجم','ترجمة','language','لغة','arabic word','how do you say',
+    'what does','كيف أقول','traduire','traduction','langue'])) {
+    addBotMessage("Language help! 🗣️\n\nUseful Arabic phrases:\n\n👋 Hello — مرحبا (Marhaba)\n🙏 Thank you — شكراً (Shukran)\n✅ Yes — نعم (Na'am)\n❌ No — لا (La)\n💰 How much? — كم؟ (Kam?)\n🚻 Where is...? — وين؟ (Wayn?)\n🍽️ The bill please — الحساب لو سمحت (Al-hisab law samaht)\n💧 Water — ماء (Ma'a)\n\n💡 Most people in tourist areas speak English!\n\nNeed more phrases?",
+      ["More phrases","Find a translator","Hotel reception help"]);
+    return;
+  }
+
+  // ========================
   // SMART DEFAULT — try to understand intent
   // ========================
-  addBotMessage("I'd love to help! 😊 Here's what I can assist with — just tap or type:\n\n🍽️ Restaurants & dining\n🏨 Hotel services (spa, laundry, room service...)\n🚗 Car rental & airport transfers\n🗺️ Trips, tours & sightseeing\n🛍️ Shopping & nearby places\n☀️ Weather, WiFi & more\n\nTry saying something like \"I'm hungry\", \"book a spa\", or \"find me a trip\"!", t('welcomeChips'));
+  addBotMessage("I'd love to help! 😊 Here's what I can assist with — just tap or type:\n\n🏨 Find & book hotels\n🍽️ Restaurants & dining\n🛎️ Hotel services (spa, laundry, room service...)\n🚗 Car rental, taxi & airport transfers\n🗺️ Trips, tours & sightseeing\n🛍️ Shopping & nearby places\n🏛️ Museums & culture\n🏜️ Desert & beach adventures\n☀️ Weather, WiFi, currency & more\n\nTry saying something like \"I need a hotel\", \"I'm hungry\", \"book a spa\", or \"find me a trip\"!", t('welcomeChips'));
+}
+
+// Hotel results display
+function showHotelResults() {
+  const hotels = {
+    riyadh: [
+      {name:"Four Seasons Riyadh",stars:5,price:2800,area:"Kingdom Centre",amenities:"Pool, Spa, Fine Dining",rating:4.9},
+      {name:"Narcissus Hotel & Residence",stars:5,price:1200,area:"Olaya District",amenities:"Pool, Gym, Restaurant",rating:4.6},
+      {name:"Holiday Inn Olaya",stars:4,price:550,area:"Olaya Street",amenities:"Pool, Restaurant, Business Center",rating:4.3},
+      {name:"Braira Hotel",stars:4,price:420,area:"Al Malaz",amenities:"Free Breakfast, Gym, Parking",rating:4.1},
+      {name:"Park Inn by Radisson",stars:3,price:320,area:"Al Sahafa",amenities:"Restaurant, Parking, WiFi",rating:4.0},
+    ],
+    jeddah: [
+      {name:"Shangri-La Jeddah",stars:5,price:2500,area:"Corniche",amenities:"Beach, Pool, Spa, Fine Dining",rating:4.8},
+      {name:"Rosewood Jeddah",stars:5,price:2200,area:"Corniche",amenities:"Pool, Spa, Sea View",rating:4.7},
+      {name:"Radisson Blu Jeddah",stars:4,price:600,area:"Al Andalus",amenities:"Pool, Restaurant, Gym",rating:4.3},
+      {name:"Casablanca Grand Hotel",stars:4,price:380,area:"Al Hamra",amenities:"Restaurant, Business Center",rating:4.0},
+      {name:"Dome Hotel Suites",stars:3,price:280,area:"Al Sharafiyah",amenities:"Kitchen, Parking, WiFi",rating:3.9},
+    ]
+  };
+  const cityHotels = hotels[CITY] || hotels.riyadh;
+  let msg = "Here are the best hotels in " + CITY_NAMES[CITY] + "! 🏨\n\n";
+  cityHotels.forEach((h, i) => {
+    const starStr = "⭐".repeat(h.stars);
+    msg += `${i+1}️⃣ ${h.name}\n   ${starStr} — ${h.price} SAR/night\n   📍 ${h.area}\n   ✨ ${h.amenities}\n   ⭐ Rating: ${h.rating}/5\n\n`;
+  });
+  msg += "Would you like to book any of these?";
+  addBotMessage(msg, ["Book #1","Book #2","Book #3","Compare hotels","Filter by price"]);
 }
 
 let chatMapCounter = 0;
